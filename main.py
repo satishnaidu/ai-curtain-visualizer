@@ -188,6 +188,10 @@ class CurtainVisualizerApp:
                 else:  # PIL Image from Test/Stable Diffusion
                     st.image(result, caption="Generated Curtain Visualization", width='stretch')
                 
+                # Cleanup progress indicators first
+                progress_bar.empty()
+                status_text.empty()
+                
                 # Add download button
                 if os.path.exists(saved_path):
                     with open(saved_path, "rb") as file:
@@ -199,10 +203,6 @@ class CurtainVisualizerApp:
                             width='stretch'
                         )
                     st.caption(f"💾 Saved to: {saved_path}")
-                
-                # Cleanup progress indicators
-                progress_bar.empty()
-                status_text.empty()
                 
                 # Show remaining credits after generation
                 if not config.test_mode:
