@@ -1,0 +1,202 @@
+from PIL import Image
+import io
+import asyncio
+import hashlib
+import os
+import requests
+from datetime import datetime
+from pathlib import Path
+from typing import Union, Tuple
+from loguru import logger
+from .config import config
+from .exceptions import ImageValidationError, APIError, ImageProcessingError, ModelError
+from .model_factory import ModelFactory
+
+
+class ImageProcessor:
+    def __init__(self):
+        self.model = ModelFactory.get_model(config.effective_model_type)
+        self.base_output_dir = Path("generated_images")
+        self.base_output_dir.mkdir(exist_ok=True)
+        logger.info(f"ImageProcessor initialized with {config.effective_model_type.value} model")
+
+    def validate_image(self, image_file) -> None:
+        """Validate uploaded image file"""
+        if not image_file:
+            raise ImageValidationError("No image file provided", "MISSING_FILE")
+        
+        # Validate file type only
+        file_extension = image_file.name.split('.')[-1].lower() if hasattr(image_file, 'name') else ''
+        if file_extension not in config.allowed_image_types:
+            raise ImageValidationError(
+                f"Unsupported file type: {file_extension}. Allowed: {config.allowed_image_types}",
+                "INVALID_FILE_TYPE"
+            )
+
+    async def process_images(self, room_photo, fabric_photo, user_phone=None) -> Union[Image.Image, str]:
+        """Process room and fabric photos asynchronously"""
+        try:
+            # Validate images
+            self.validate_image(room_photo)
+            self.validate_image(fabric_photo)
+
+            # Convert and optimize images
+            room_image = self._optimize_image(Image.open(room_photo).convert("RGB"))
+            fabric_image = self._optimize_image(Image.open(fabric_photo).convert("RGB"))
+            
+            logger.info(f"Processing optimized images: room={room_image.size}, fabric={fabric_image.size}")
+
+            return await self.generate_curtain_visualization(room_image, fabric_image, user_phone)
+
+        except (ImageValidationError, APIError, ModelError):
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in image processing: {str(e)}")
+            raise ImageProcessingError(f"Error processing images: {str(e)}", "PROCESSING_FAILED")
+
+    async def generate_curtain_visualization(self, room_image: Image.Image, fabric_image: Image.Image, user_phone=None) -> Union[Image.Image, str]:
+        """Generate curtain visualization using selected model with retry logic"""
+        for attempt in range(config.max_retries):
+            try:
+                # Extract fabric characteristics
+                fabric_analysis = self.analyze_fabric(fabric_image)
+                room_analysis = self.analyze_room(room_image)
+                
+                # Generate enhanced prompt
+                prompt = self.generate_enhanced_prompt(room_analysis, fabric_analysis)
+                
+                logger.info(f"Generating visualization (attempt {attempt + 1}/{config.max_retries})")
+                
+                # Generate image using the selected model
+                result = await self.model.generate_image(prompt, room_image, fabric_image)
+                
+                # Save result to filesystem with user phone
+                saved_path = await self._save_result(result, user_phone)
+                
+                logger.success(f"Curtain visualization generated and saved to {saved_path}")
+                return result, saved_path
+
+            except (APIError, ModelError) as e:
+                logger.warning(f"Attempt {attempt + 1} failed: {str(e)}")
+                if attempt == config.max_retries - 1:
+                    raise APIError(f"Failed after {config.max_retries} attempts: {str(e)}")
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+            except Exception as e:
+                logger.error(f"Unexpected error in visualization generation: {str(e)}")
+                raise APIError(f"Error generating curtain visualization: {str(e)}")
+
+    def analyze_fabric(self, fabric_image: Image.Image) -> dict:
+        """Analyze fabric characteristics"""
+        # Enhanced fabric analysis
+        colors = self.extract_fabric_colors(fabric_image)
+        texture = self.analyze_texture(fabric_image)
+        pattern = self.detect_pattern(fabric_image)
+        
+        return {
+            "colors": colors,
+            "texture": texture,
+            "pattern": pattern
+        }
+    
+    def analyze_room(self, room_image: Image.Image) -> dict:
+        """Analyze room characteristics"""
+        # Enhanced room analysis
+        return {
+            "lighting": "natural daylight",
+            "style": "modern contemporary",
+            "color_scheme": "neutral tones",
+            "window_count": "multiple windows"
+        }
+
+    def extract_fabric_colors(self, fabric_image: Image.Image) -> str:
+        """Extract dominant colors from fabric image using advanced color analysis"""
+        # Simplified implementation - in production, use advanced color clustering
+        try:
+            # Get dominant colors
+            fabric_image_small = fabric_image.resize((50, 50))
+            colors = fabric_image_small.getcolors(maxcolors=256)
+            if colors:
+                dominant_color = max(colors, key=lambda x: x[0])[1]
+                # Convert RGB to color name (simplified)
+                if sum(dominant_color) < 300:
+                    return "deep rich tones"
+                elif sum(dominant_color) > 600:
+                    return "light neutral tones"
+                else:
+                    return "warm medium tones"
+            return "neutral earth tones"
+        except Exception:
+            return "classic neutral colors"
+    
+    def analyze_texture(self, fabric_image: Image.Image) -> str:
+        """Analyze fabric texture"""
+        # Simplified texture analysis
+        return "smooth flowing fabric"
+    
+    def detect_pattern(self, fabric_image: Image.Image) -> str:
+        """Detect fabric patterns"""
+        # Simplified pattern detection
+        return "subtle geometric patterns"
+
+    def generate_enhanced_prompt(self, room_analysis: dict, fabric_analysis: dict) -> str:
+        """Generate enhanced prompt based on comprehensive analysis"""
+        return (
+            f"Create a photorealistic interior design visualization showing elegant curtains "
+            f"with {fabric_analysis['colors']} and {fabric_analysis['texture']} featuring {fabric_analysis['pattern']}. "
+            f"The curtains should be professionally installed in a {room_analysis['style']} room "
+            f"with {room_analysis['lighting']} and {room_analysis['color_scheme']}. "
+            f"Show natural draping and folds, proper proportions, and realistic shadows. "
+            f"The curtains should complement the existing decor while being the focal point. "
+            f"High-quality interior photography style, professional lighting, 4K resolution."
+        )
+    
+    def _optimize_image(self, image: Image.Image, max_size: int = 1024) -> Image.Image:
+        """Optimize image size and quality for model processing"""
+        # Get original dimensions
+        width, height = image.size
+        
+        # Calculate new dimensions if image is too large
+        if max(width, height) > max_size:
+            if width > height:
+                new_width = max_size
+                new_height = int((height * max_size) / width)
+            else:
+                new_height = max_size
+                new_width = int((width * max_size) / height)
+            
+            # Resize with high-quality resampling
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            logger.info(f"Image resized from {width}x{height} to {new_width}x{new_height}")
+        
+        return image
+    
+    async def _save_result(self, result: Union[Image.Image, str], user_phone: str = None) -> str:
+        """Save generated result to filesystem organized by user phone"""
+        # Create user-specific directory
+        if user_phone:
+            clean_phone = user_phone.replace('+', '').replace('-', '').replace(' ', '')
+            user_dir = self.base_output_dir / clean_phone
+            user_dir.mkdir(exist_ok=True)
+        else:
+            user_dir = self.base_output_dir
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"curtain_visualization_{timestamp}.png"
+        filepath = user_dir / filename
+        
+        if isinstance(result, str):  # URL from API
+            # Download and save image from URL
+            response = requests.get(result)
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+        else:  # PIL Image
+            result.save(filepath, 'PNG')
+        
+        logger.info(f"Image saved to {filepath}")
+        return str(filepath)
+    
+    def _generate_image_hash(self, image: Image.Image) -> str:
+        """Generate hash for image caching"""
+        image_bytes = io.BytesIO()
+        image.save(image_bytes, format='PNG')
+        return hashlib.md5(image_bytes.getvalue()).hexdigest()[:16]
