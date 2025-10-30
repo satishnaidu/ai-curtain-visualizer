@@ -110,55 +110,164 @@ class ImageProcessor:
         }
     
     def analyze_room(self, room_image: Image.Image) -> dict:
-        """Analyze room characteristics"""
-        # Enhanced room analysis
-        return {
-            "lighting": "natural daylight",
-            "style": "modern contemporary",
-            "color_scheme": "neutral tones",
-            "window_count": "multiple windows"
-        }
+        """Analyze room characteristics dynamically"""
+        try:
+            width, height = room_image.size
+            
+            # Sample room colors to determine scheme
+            sample_points = [(width//4, height//4), (width//2, height//2), (3*width//4, 3*height//4)]
+            room_colors = []
+            for x, y in sample_points:
+                r, g, b = room_image.getpixel((x, y))
+                room_colors.append((r, g, b))
+            
+            avg_brightness = sum(sum(c) for c in room_colors) // (len(room_colors) * 3)
+            
+            # Determine room characteristics
+            if avg_brightness > 200:
+                color_scheme = "bright and airy with light colors"
+                lighting = "well-lit with natural light"
+            elif avg_brightness > 120:
+                color_scheme = "warm and inviting with medium tones"
+                lighting = "comfortable ambient lighting"
+            else:
+                color_scheme = "cozy and intimate with darker tones"
+                lighting = "soft and moody lighting"
+            
+            return {
+                "lighting": lighting,
+                "style": "contemporary interior",
+                "color_scheme": color_scheme,
+                "window_treatment": "existing window coverings"
+            }
+        except Exception as e:
+            logger.warning(f"Room analysis failed: {e}")
+            return {
+                "lighting": "natural lighting",
+                "style": "modern interior",
+                "color_scheme": "neutral color palette",
+                "window_treatment": "current window treatments"
+            }
 
     def extract_fabric_colors(self, fabric_image: Image.Image) -> str:
         """Extract dominant colors from fabric image using advanced color analysis"""
-        # Simplified implementation - in production, use advanced color clustering
         try:
-            # Get dominant colors
-            fabric_image_small = fabric_image.resize((50, 50))
-            colors = fabric_image_small.getcolors(maxcolors=256)
-            if colors:
-                dominant_color = max(colors, key=lambda x: x[0])[1]
-                # Convert RGB to color name (simplified)
-                if sum(dominant_color) < 300:
-                    return "deep rich tones"
-                elif sum(dominant_color) > 600:
-                    return "light neutral tones"
-                else:
-                    return "warm medium tones"
-            return "neutral earth tones"
-        except Exception:
-            return "classic neutral colors"
+            # Sample multiple points for better color analysis
+            width, height = fabric_image.size
+            sample_points = [
+                (width//4, height//4), (width//2, height//4), (3*width//4, height//4),
+                (width//4, height//2), (width//2, height//2), (3*width//4, height//2),
+                (width//4, 3*height//4), (width//2, 3*height//4), (3*width//4, 3*height//4)
+            ]
+            
+            colors = []
+            for x, y in sample_points:
+                r, g, b = fabric_image.getpixel((x, y))
+                colors.append((r, g, b))
+            
+            # Calculate average color
+            avg_r = sum(c[0] for c in colors) // len(colors)
+            avg_g = sum(c[1] for c in colors) // len(colors)
+            avg_b = sum(c[2] for c in colors) // len(colors)
+            
+            # Determine color description based on RGB values
+            if avg_r > avg_g and avg_r > avg_b:
+                if avg_r > 180: return "warm red and pink tones"
+                elif avg_r > 120: return "rich burgundy and wine colors"
+                else: return "deep red and maroon shades"
+            elif avg_g > avg_r and avg_g > avg_b:
+                if avg_g > 180: return "fresh green and sage colors"
+                elif avg_g > 120: return "forest and olive green tones"
+                else: return "deep emerald and hunter green"
+            elif avg_b > avg_r and avg_b > avg_g:
+                if avg_b > 180: return "soft blue and sky tones"
+                elif avg_b > 120: return "navy and royal blue colors"
+                else: return "deep indigo and midnight blue"
+            elif avg_r > 200 and avg_g > 200 and avg_b > 180:
+                return "cream, beige and natural linen colors"
+            elif avg_r > 150 and avg_g > 130 and avg_b > 100:
+                return "warm brown, tan and earth tones"
+            elif avg_r < 80 and avg_g < 80 and avg_b < 80:
+                return "charcoal, black and dark gray tones"
+            elif avg_r > 180 and avg_g > 180 and avg_b > 180:
+                return "white, off-white and light neutral tones"
+            else:
+                return "mixed neutral and natural fabric colors"
+                
+        except Exception as e:
+            logger.warning(f"Color extraction failed: {e}")
+            return "natural fabric colors"
     
     def analyze_texture(self, fabric_image: Image.Image) -> str:
-        """Analyze fabric texture"""
-        # Simplified texture analysis
-        return "smooth flowing fabric"
+        """Analyze fabric texture dynamically"""
+        try:
+            # Convert to grayscale for texture analysis
+            gray_fabric = fabric_image.convert('L')
+            width, height = gray_fabric.size
+            
+            # Sample texture variation
+            pixels = []
+            for x in range(0, width, width//10):
+                for y in range(0, height, height//10):
+                    if x < width and y < height:
+                        pixels.append(gray_fabric.getpixel((x, y)))
+            
+            # Calculate texture variation
+            if len(pixels) > 1:
+                avg_pixel = sum(pixels) // len(pixels)
+                variation = sum(abs(p - avg_pixel) for p in pixels) // len(pixels)
+                
+                if variation > 30:
+                    return "richly textured fabric with visible weave patterns"
+                elif variation > 15:
+                    return "subtly textured fabric with natural fiber appearance"
+                else:
+                    return "smooth fabric with fine texture"
+            
+            return "natural fabric texture"
+        except Exception:
+            return "quality fabric texture"
     
     def detect_pattern(self, fabric_image: Image.Image) -> str:
-        """Detect fabric patterns"""
-        # Simplified pattern detection
-        return "subtle geometric patterns"
+        """Detect fabric patterns dynamically"""
+        try:
+            # Sample different areas to detect pattern consistency
+            width, height = fabric_image.size
+            
+            # Compare different quadrants for pattern detection
+            quad1 = fabric_image.crop((0, 0, width//2, height//2))
+            quad2 = fabric_image.crop((width//2, 0, width, height//2))
+            
+            # Simple pattern detection based on color variation
+            q1_colors = quad1.getcolors(maxcolors=256)
+            q2_colors = quad2.getcolors(maxcolors=256)
+            
+            if q1_colors and q2_colors:
+                q1_variety = len(q1_colors)
+                q2_variety = len(q2_colors)
+                
+                if abs(q1_variety - q2_variety) > 20:
+                    return "distinctive patterns and designs"
+                elif abs(q1_variety - q2_variety) > 10:
+                    return "subtle patterns and texture variations"
+                else:
+                    return "solid color with natural fabric texture"
+            
+            return "natural fabric appearance"
+        except Exception:
+            return "classic fabric styling"
 
     def generate_enhanced_prompt(self, room_analysis: dict, fabric_analysis: dict) -> str:
-        """Generate enhanced prompt based on comprehensive analysis"""
+        """Generate enhanced prompt for any room transformation"""
         return (
-            f"Create a photorealistic interior design visualization showing elegant curtains "
-            f"with {fabric_analysis['colors']} and {fabric_analysis['texture']} featuring {fabric_analysis['pattern']}. "
-            f"The curtains should be professionally installed in a {room_analysis['style']} room "
-            f"with {room_analysis['lighting']} and {room_analysis['color_scheme']}. "
-            f"Show natural draping and folds, proper proportions, and realistic shadows. "
-            f"The curtains should complement the existing decor while being the focal point. "
-            f"High-quality interior photography style, professional lighting, 4K resolution."
+            f"Transform this interior room by replacing any existing window treatments (blinds, shades, or bare windows) with elegant floor-length curtains. "
+            f"Maintain the exact same room layout, furniture placement, wall colors, and architectural features. "
+            f"Keep the same {room_analysis['lighting']} and {room_analysis['color_scheme']}. "
+            f"Add beautiful curtains made from fabric with {fabric_analysis['colors']} and {fabric_analysis['texture']} featuring {fabric_analysis['pattern']}. "
+            f"The curtains should hang gracefully from ceiling to floor, properly fitted to all windows in the space. "
+            f"Preserve the room's {room_analysis['style']} aesthetic while enhancing it with the new curtains. "
+            f"Show realistic fabric draping, natural folds, and proper proportions. "
+            f"Professional interior design photography with natural lighting and shadows, high resolution."
         )
     
     def _optimize_image(self, image: Image.Image, max_size: int = 1024) -> Image.Image:
