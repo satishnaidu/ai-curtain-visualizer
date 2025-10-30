@@ -309,6 +309,11 @@ class ImageProcessor:
             response = requests.get(result)
             with open(filepath, 'wb') as f:
                 f.write(response.content)
+        elif hasattr(result, 'url'):  # Replicate FileOutput object
+            # Download from FileOutput URL
+            response = requests.get(result.url)
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
         else:  # PIL Image
             result.save(filepath, 'PNG')
         
