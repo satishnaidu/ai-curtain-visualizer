@@ -191,13 +191,13 @@ class ReplicateModel(BaseModel):
             
             output = await asyncio.to_thread(
                 self.client.run,
-                "timbrooks/instruct-pix2pix:30c1d0b916a6f8efce20493a5d61ee27491ab2a60437c13c588468b9810ec23f",
+                "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
                 input={
+                    "prompt": f"Cover all the windows with {fabric_colors} with long curtains, keep room identical",
                     "image": room_url,
-                    "prompt": f"Replace the white horizontal blinds with {fabric_colors} curtains",
-                    "num_inference_steps": 10,
-                    "guidance_scale": 7.5,
-                    "image_guidance_scale": 1.5
+                    "strength": 0.3,
+                    "num_inference_steps": 15,
+                    "guidance_scale": 6
                 }
             )
             return output[0] if output else None
