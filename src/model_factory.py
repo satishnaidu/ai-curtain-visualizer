@@ -30,7 +30,7 @@ class BaseModel(ABC):
 class LangChainOpenAIModel(BaseModel):
     def __init__(self):
         super().__init__()
-        if not config.openai_api_key:
+        if not config.openai_api_key or config.openai_api_key == "your_api_key_here":
             raise ModelError("OpenAI API key required for LangChain model")
         self.llm = ChatOpenAI(
             model=config.langchain_model_name,
@@ -150,7 +150,7 @@ class TestModel(BaseModel):
 class DalleModel(BaseModel):
     def __init__(self):
         super().__init__()
-        if not config.openai_api_key:
+        if not config.openai_api_key or config.openai_api_key == "your_api_key_here":
             raise ModelError("OpenAI API key required for DALL-E model")
         self.client = OpenAI(api_key=config.openai_api_key)
 

@@ -12,7 +12,7 @@ class ModelType(Enum):
 
 class Config(BaseSettings):
     # API Keys
-    openai_api_key: Optional[str] = Field(None, env="OPENAI_API_KEY")
+    openai_api_key: Optional[str] = Field("your_api_key_here", env="OPENAI_API_KEY")
     
     # Test Mode
     test_mode: bool = Field(False, env="TEST_MODE")
@@ -27,7 +27,7 @@ class Config(BaseSettings):
     @property
     def effective_model_type(self) -> ModelType:
         """Get the effective model type based on test mode"""
-        if self.test_mode:
+        if self.test_mode or not self.openai_api_key or self.openai_api_key == "your_api_key_here":
             return ModelType.TEST_MODE
         return self.model_type
     stable_diffusion_model: str = "stabilityai/stable-diffusion-2-1"
