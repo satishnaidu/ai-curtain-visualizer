@@ -31,7 +31,7 @@ class CurtainVisualizerApp:
             layout="wide",
             initial_sidebar_state="expanded"
         )
-        st.title("🪟 AI Curtain Visualizer - Production Grade")
+        st.title("🪟 AI Curtain Visualizer")
         
         # Enhanced sidebar with model info and settings
         with st.sidebar:
