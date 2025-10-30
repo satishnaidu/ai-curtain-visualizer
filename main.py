@@ -9,6 +9,7 @@ from src.config import config, ModelType
 from src.logging_config import setup_logging
 from src.user_manager import UserManager
 from src.payment_simulator import PaymentSimulator
+from src.gallery_manager import GalleryManager
 
 # Setup logging and create logs directory
 Path("logs").mkdir(exist_ok=True)
@@ -19,6 +20,7 @@ class CurtainVisualizerApp:
         self.image_processor = ImageProcessor()
         self.user_manager = UserManager()
         self.payment_simulator = PaymentSimulator()
+        self.gallery_manager = GalleryManager()
         self.setup_page()
         logger.info("CurtainVisualizerApp initialized")
 
@@ -66,6 +68,17 @@ class CurtainVisualizerApp:
 
     def run(self):
         """Run the Streamlit application with enhanced error handling"""
+        # Create tabs
+        tab1, tab2 = st.tabs(["🎨 Generate", "🖼️ Gallery"])
+        
+        with tab1:
+            self._render_generate_tab()
+        
+        with tab2:
+            self._render_gallery_tab()
+    
+    def _render_generate_tab(self):
+        """Render the image generation tab"""
         # User authentication
         if not self._handle_authentication():
             return
@@ -80,7 +93,7 @@ class CurtainVisualizerApp:
                 help="Upload a clear photo of your room showing windows where curtains will be installed"
             )
             if room_photo:
-                st.image(room_photo, caption=f"Room Photo ({room_photo.size} bytes)", use_column_width=True)
+                st.image(room_photo, caption=f"Room Photo ({room_photo.size} bytes)", width='stretch')
                 # Show image metadata
                 st.caption(f"File: {room_photo.name} | Size: {room_photo.size:,} bytes (will be auto-optimized)")
 
@@ -92,7 +105,7 @@ class CurtainVisualizerApp:
                 help="Upload a photo of your desired curtain fabric showing color and texture"
             )
             if fabric_photo:
-                st.image(fabric_photo, caption=f"Fabric Pattern ({fabric_photo.size} bytes)", use_column_width=True)
+                st.image(fabric_photo, caption=f"Fabric Pattern ({fabric_photo.size} bytes)", width='stretch')
                 st.caption(f"File: {fabric_photo.name} | Size: {fabric_photo.size:,} bytes (will be auto-optimized)")
 
         # Generation section
@@ -112,7 +125,7 @@ class CurtainVisualizerApp:
                 "🎨 Generate Visualization" if credits > 0 or config.test_mode else "❌ No Credits", 
                 type="primary" if credits > 0 or config.test_mode else "secondary",
                 disabled=button_disabled,
-                use_container_width=True
+                width='stretch'
             )
         
         with col_status:
@@ -167,10 +180,10 @@ class CurtainVisualizerApp:
                     st.success("Curtain visualization generated successfully!")
                 
                 if isinstance(result, str):  # URL from DALL-E
-                    st.image(result, caption="Generated Curtain Visualization", use_column_width=True)
+                    st.image(result, caption="Generated Curtain Visualization", width='stretch')
                     st.markdown(f"[🔗 Open in new tab]({result})")
                 else:  # PIL Image from Test/Stable Diffusion
-                    st.image(result, caption="Generated Curtain Visualization", use_column_width=True)
+                    st.image(result, caption="Generated Curtain Visualization", width='stretch')
                 
                 # Add download button
                 if os.path.exists(saved_path):
@@ -180,7 +193,7 @@ class CurtainVisualizerApp:
                             data=file.read(),
                             file_name=os.path.basename(saved_path),
                             mime="image/png",
-                            use_container_width=True
+                            width='stretch'
                         )
                     st.caption(f"💾 Saved to: {saved_path}")
                 
@@ -265,7 +278,7 @@ class CurtainVisualizerApp:
                 help="Enter your phone number with country code"
             )
             
-            submitted = st.form_submit_button("🚀 Continue", use_container_width=True)
+            submitted = st.form_submit_button("🚀 Continue", width='stretch')
             
             if submitted:
                 if not phone:
@@ -286,6 +299,71 @@ class CurtainVisualizerApp:
                 st.rerun()
         
         return False
+    
+    def _render_gallery_tab(self):
+        """Render the gallery tab for public viewing"""
+        st.header("🖼️ Gallery - See What Others Have Created")
+        st.write("Explore amazing curtain visualizations created by our users. Get inspired and see how our AI transforms rooms!")
+        
+        # Get gallery entries
+        entries = self.gallery_manager.get_gallery_entries()
+        
+        if not entries:
+            st.info("No gallery items yet. Be the first to create a visualization!")
+            return
+        
+        # Display entries in tabular format
+        for i, entry in enumerate(entries):
+            st.divider()
+            
+            # Create three columns for room, fabric, and result
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.subheader("🏠 Room Photo")
+                if os.path.exists(entry.get("room_photo_path", "")):
+                    st.image(entry["room_photo_path"], caption="Original Room", width='stretch')
+                else:
+                    st.error("Room photo not found")
+            
+            with col2:
+                st.subheader("🧵 Fabric Pattern")
+                if os.path.exists(entry.get("fabric_photo_path", "")):
+                    st.image(entry["fabric_photo_path"], caption="Fabric Choice", width='stretch')
+                else:
+                    st.error("Fabric photo not found")
+            
+            with col3:
+                st.subheader("✨ AI Result")
+                if os.path.exists(entry.get("result_path", "")):
+                    st.image(entry["result_path"], caption="Generated Visualization", width='stretch')
+                else:
+                    st.error("Result image not found")
+            
+            # Show metadata below the images
+            col_meta1, col_meta2, col_meta3 = st.columns(3)
+            with col_meta2:
+                st.caption(f"👤 User: {entry['user_phone']}")
+                if isinstance(entry['timestamp'], list) and len(entry['timestamp']) >= 2:
+                    date_str = entry['timestamp'][0]
+                    time_str = entry['timestamp'][1]
+                    formatted_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+                    formatted_time = f"{time_str[:2]}:{time_str[2:4]}"
+                    st.caption(f"📅 Created: {formatted_date} {formatted_time}")
+                
+                # Call to action
+                if st.button(f"✨ Create Similar", key=f"cta_{i}"):
+                    st.rerun()
+        
+        # Call to action at bottom
+        st.divider()
+        st.markdown("### 🚀 Ready to Create Your Own?")
+        st.write("Join thousands of users creating amazing curtain visualizations!")
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🎨 Start Creating Now", type="primary", width='stretch'):
+                st.rerun()
     
     def _show_user_dashboard(self):
         """Show user dashboard with credits and stats"""

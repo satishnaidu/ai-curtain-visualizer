@@ -11,6 +11,7 @@ from loguru import logger
 from .config import config
 from .exceptions import ImageValidationError, APIError, ImageProcessingError, ModelError
 from .model_factory import ModelFactory
+from .gallery_manager import GalleryManager
 
 
 class ImageProcessor:
@@ -18,6 +19,7 @@ class ImageProcessor:
         self.model = ModelFactory.get_model(config.effective_model_type)
         self.base_output_dir = Path("generated_images")
         self.base_output_dir.mkdir(exist_ok=True)
+        self.gallery_manager = GalleryManager()
         logger.info(f"ImageProcessor initialized with {config.effective_model_type.value} model")
 
     def validate_image(self, image_file) -> None:
@@ -46,7 +48,12 @@ class ImageProcessor:
             
             logger.info(f"Processing optimized images: room={room_image.size}, fabric={fabric_image.size}")
 
-            return await self.generate_curtain_visualization(room_image, fabric_image, user_phone)
+            result, saved_path = await self.generate_curtain_visualization(room_image, fabric_image, user_phone, room_photo.name, fabric_photo.name)
+            
+            # Add to gallery after successful generation
+            self.gallery_manager.add_to_gallery(room_photo, fabric_photo, saved_path, user_phone)
+            
+            return result, saved_path
 
         except (ImageValidationError, APIError, ModelError):
             raise
@@ -54,7 +61,7 @@ class ImageProcessor:
             logger.error(f"Unexpected error in image processing: {str(e)}")
             raise ImageProcessingError(f"Error processing images: {str(e)}", "PROCESSING_FAILED")
 
-    async def generate_curtain_visualization(self, room_image: Image.Image, fabric_image: Image.Image, user_phone=None) -> Union[Image.Image, str]:
+    async def generate_curtain_visualization(self, room_image: Image.Image, fabric_image: Image.Image, user_phone=None, room_name="room.jpg", fabric_name="fabric.jpg") -> Union[Image.Image, str]:
         """Generate curtain visualization using selected model with retry logic"""
         for attempt in range(config.max_retries):
             try:
@@ -72,6 +79,10 @@ class ImageProcessor:
                 
                 # Save result to filesystem with user phone
                 saved_path = await self._save_result(result, user_phone)
+                
+                # Add to gallery for public viewing (pass original photo objects)
+                # Note: We need to pass the original photos from the calling function
+                # This will be handled in the process_images method
                 
                 logger.success(f"Curtain visualization generated and saved to {saved_path}")
                 return result, saved_path

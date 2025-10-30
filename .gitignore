@@ -50,7 +50,9 @@ Thumbs.db
 # Application Specific
 logs/
 generated_images/
+gallery_images/
 users.json
+gallery.json
 cache/
 
 # Streamlit
