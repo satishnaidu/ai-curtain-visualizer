@@ -183,18 +183,23 @@ class ReplicateModel(BaseModel):
     async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
         try:
             room_url = await self._upload_image(room_image)
+            fabric_url = await self._upload_image(fabric_image)
+            
+            # Create a composite prompt with fabric description
+            fabric_colors = self._analyze_fabric_colors(fabric_image)
+            enhanced_prompt = f"Transform this room by adding elegant floor-length curtains with {fabric_colors} fabric to all windows. {prompt}"
+            
             output = await asyncio.to_thread(
                 self.client.run,
-                "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e45",
+                "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
                 input={
-                    "prompt": prompt,
+                    "prompt": enhanced_prompt,
                     "image": room_url,
-                    "width": 768,
-                    "height": 768,
-                    "prompt_strength": 0.8,
-                    "num_inference_steps": 50,
-                    "guidance_scale": 7.5,
-                    "scheduler": "K_EULER"
+                    "width": 1024,
+                    "height": 1024,
+                    "strength": 0.7,
+                    "num_inference_steps": 25,
+                    "guidance_scale": 7.5
                 }
             )
             return output[0] if output else None
@@ -209,6 +214,33 @@ class ReplicateModel(BaseModel):
         image.save(buffer, format='JPEG', quality=85)
         img_str = base64.b64encode(buffer.getvalue()).decode()
         return f"data:image/jpeg;base64,{img_str}"
+    
+    def _analyze_fabric_colors(self, fabric_image: Image.Image) -> str:
+        """Analyze fabric colors for prompt enhancement"""
+        try:
+            width, height = fabric_image.size
+            colors = []
+            for x in range(0, width, width//5):
+                for y in range(0, height, height//5):
+                    if x < width and y < height:
+                        colors.append(fabric_image.getpixel((x, y)))
+            
+            avg_r = sum(c[0] for c in colors) // len(colors)
+            avg_g = sum(c[1] for c in colors) // len(colors)
+            avg_b = sum(c[2] for c in colors) // len(colors)
+            
+            if avg_r > 200 and avg_g > 200 and avg_b > 180:
+                return "cream and beige colored"
+            elif avg_r > avg_g and avg_r > avg_b:
+                return "warm red and burgundy"
+            elif avg_g > avg_r and avg_g > avg_b:
+                return "green and sage"
+            elif avg_b > avg_r and avg_b > avg_g:
+                return "blue and navy"
+            else:
+                return "neutral colored"
+        except:
+            return "textured fabric"
 
 
 class TestModel(BaseModel):
