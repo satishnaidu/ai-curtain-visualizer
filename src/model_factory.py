@@ -185,14 +185,16 @@ class ReplicateModel(BaseModel):
             room_url = await self._upload_image(room_image)
             output = await asyncio.to_thread(
                 self.client.run,
-                "jagilley/controlnet-canny:aff48af9c68d162388d230a2ab003f68d2638d88307bdaf1c2f1ac95079c9613",
+                "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e45",
                 input={
-                    "image": room_url,
                     "prompt": prompt,
-                    "num_samples": "1",
-                    "image_resolution": "768",
-                    "strength": 0.7,
-                    "guidance_scale": 7.5
+                    "image": room_url,
+                    "width": 768,
+                    "height": 768,
+                    "prompt_strength": 0.8,
+                    "num_inference_steps": 50,
+                    "guidance_scale": 7.5,
+                    "scheduler": "K_EULER"
                 }
             )
             return output[0] if output else None
