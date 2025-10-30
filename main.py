@@ -182,6 +182,9 @@ class CurtainVisualizerApp:
                 if isinstance(result, str):  # URL from DALL-E
                     st.image(result, caption="Generated Curtain Visualization", width='stretch')
                     st.markdown(f"[🔗 Open in new tab]({result})")
+                elif hasattr(result, 'url'):  # Replicate FileOutput object
+                    st.image(result.url, caption="Generated Curtain Visualization", width='stretch')
+                    st.markdown(f"[🔗 Open in new tab]({result.url})")
                 else:  # PIL Image from Test/Stable Diffusion
                     st.image(result, caption="Generated Curtain Visualization", width='stretch')
                 
