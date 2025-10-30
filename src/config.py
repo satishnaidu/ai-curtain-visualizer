@@ -4,6 +4,12 @@ from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Optional
 
+try:
+    import streamlit as st
+    _has_streamlit = True
+except ImportError:
+    _has_streamlit = False
+
 class ModelType(Enum):
     STABLE_DIFFUSION = "stable_diffusion"
     DALLE = "dalle"
@@ -13,6 +19,14 @@ class ModelType(Enum):
 class Config(BaseSettings):
     # API Keys
     openai_api_key: Optional[str] = Field("your_api_key_here", env="OPENAI_API_KEY")
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Try to get API key from Streamlit secrets if available
+        if _has_streamlit and hasattr(st, 'secrets') and 'OPENAI_API_KEY' in st.secrets:
+            self.openai_api_key = st.secrets['OPENAI_API_KEY']
+        if _has_streamlit and hasattr(st, 'secrets') and 'TEST_MODE' in st.secrets:
+            self.test_mode = st.secrets['TEST_MODE']
     
     # Test Mode
     test_mode: bool = Field(False, env="TEST_MODE")
