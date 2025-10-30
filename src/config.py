@@ -14,19 +14,28 @@ class ModelType(Enum):
     STABLE_DIFFUSION = "stable_diffusion"
     DALLE = "dalle"
     LANGCHAIN_OPENAI = "langchain_openai"
+    REPLICATE_CONTROLNET = "replicate_controlnet"
+    REPLICATE_REALISTIC = "replicate_realistic"
     TEST_MODE = "test_mode"
 
 class Config(BaseSettings):
     # API Keys
     openai_api_key: Optional[str] = Field("your_api_key_here", env="OPENAI_API_KEY")
+    replicate_api_token: Optional[str] = Field(None, env="REPLICATE_API_TOKEN")
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Try to get API key from Streamlit secrets if available
-        if _has_streamlit and hasattr(st, 'secrets') and 'OPENAI_API_KEY' in st.secrets:
-            self.openai_api_key = st.secrets['OPENAI_API_KEY']
-        if _has_streamlit and hasattr(st, 'secrets') and 'TEST_MODE' in st.secrets:
-            self.test_mode = st.secrets['TEST_MODE']
+        # Try to get API key from Streamlit secrets only in cloud environment
+        if _has_streamlit:
+            try:
+                if 'OPENAI_API_KEY' in st.secrets:
+                    self.openai_api_key = st.secrets['OPENAI_API_KEY']
+                if 'REPLICATE_API_TOKEN' in st.secrets:
+                    self.replicate_api_token = st.secrets['REPLICATE_API_TOKEN']
+                if 'TEST_MODE' in st.secrets:
+                    self.test_mode = st.secrets['TEST_MODE']
+            except:
+                pass  # Ignore secrets errors in local development
     
     # Test Mode
     test_mode: bool = Field(False, env="TEST_MODE")
@@ -36,14 +45,21 @@ class Config(BaseSettings):
     max_image_dimension: int = 1024  # Max width/height for optimization
     
     # Model Configuration  
-    model_type: ModelType = ModelType.LANGCHAIN_OPENAI
+    model_type: ModelType = ModelType.REPLICATE_CONTROLNET  # Better for image transformation
     
     @property
     def effective_model_type(self) -> ModelType:
-        """Get the effective model type based on test mode"""
-        if self.test_mode or not self.openai_api_key or self.openai_api_key == "your_api_key_here":
+        """Get the effective model type with fallback priority"""
+        if self.test_mode:
             return ModelType.TEST_MODE
-        return self.model_type
+        
+        # Priority: Replicate -> DALL-E -> Test
+        if self.replicate_api_token:
+            return ModelType.REPLICATE_CONTROLNET
+        elif self.openai_api_key and self.openai_api_key != "your_api_key_here":
+            return ModelType.DALLE
+        else:
+            return ModelType.TEST_MODE
     stable_diffusion_model: str = "stabilityai/stable-diffusion-2-1"
     dalle_model: str = "dall-e-3"
     
@@ -62,4 +78,14 @@ class Config(BaseSettings):
         env_file = ".env"
         case_sensitive = False
 
-config = Config()
+# Initialize config safely
+try:
+    config = Config()
+except Exception as e:
+    # Fallback config for development
+    import os
+    config = Config(
+        openai_api_key=os.getenv('OPENAI_API_KEY', 'your_api_key_here'),
+        replicate_api_token=os.getenv('REPLICATE_API_TOKEN'),
+        test_mode=os.getenv('TEST_MODE', 'false').lower() == 'true'
+    )

@@ -102,16 +102,25 @@ class LangChainOpenAIModel(BaseModel):
             return base_prompt
     
     def _analyze_room_context(self, room_image: Image.Image) -> str:
-        # Specific room analysis based on the uploaded image
-        return (
-            "A modern living room with white walls and white ceiling, "
-            "featuring three rectangular windows with white frames arranged horizontally on the upper wall, "
-            "three matching windows below with white horizontal blinds currently covering them, "
-            "a dark brown leather sectional sofa positioned in front of the windows, "
-            "white/light colored flooring, some green plants in pots on the right side, "
-            "clean minimalist interior design with neutral color palette, "
-            "natural lighting from the windows, contemporary residential setting"
-        )
+        # Generic room analysis for any interior space
+        try:
+            width, height = room_image.size
+            
+            # Sample room to determine general characteristics
+            center_color = room_image.getpixel((width//2, height//2))
+            avg_brightness = sum(center_color) // 3
+            
+            if avg_brightness > 200:
+                room_desc = "A bright, airy interior space with light-colored walls and good natural lighting"
+            elif avg_brightness > 120:
+                room_desc = "A well-lit interior room with comfortable ambient lighting and medium-toned decor"
+            else:
+                room_desc = "A cozy interior space with warm, intimate lighting and rich color tones"
+            
+            return f"{room_desc}, featuring windows that would benefit from elegant curtain treatments, maintaining the existing furniture layout and architectural elements"
+            
+        except Exception:
+            return "An interior room with windows suitable for curtain installation, preserving the existing decor and layout"
     
     def _extract_fabric_colors(self, fabric_image: Image.Image) -> str:
         # Enhanced fabric analysis
@@ -156,6 +165,43 @@ class LangChainOpenAIModel(BaseModel):
 
 
 
+
+
+class ReplicateModel(BaseModel):
+    def __init__(self):
+        super().__init__()
+        if not config.replicate_api_token:
+            raise ModelError("Replicate API token required")
+        import replicate
+        self.client = replicate.Client(api_token=config.replicate_api_token)
+    
+    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
+        try:
+            room_url = await self._upload_image(room_image)
+            output = await asyncio.to_thread(
+                self.client.run,
+                "jagilley/controlnet-canny:aff48af9c68d162388d230a2ab003f68d2638d88307bdaf1c2f1ac95079c9613",
+                input={
+                    "image": room_url,
+                    "prompt": prompt,
+                    "num_samples": 1,
+                    "image_resolution": "1024",
+                    "strength": 0.7,
+                    "guidance_scale": 7.5
+                }
+            )
+            return output[0] if output else None
+        except Exception as e:
+            logger.error(f"Replicate error: {e}")
+            raise ModelError(f"Replicate generation failed: {e}")
+    
+    async def _upload_image(self, image: Image.Image) -> str:
+        import base64
+        from io import BytesIO
+        buffer = BytesIO()
+        image.save(buffer, format='JPEG', quality=85)
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        return f"data:image/jpeg;base64,{img_str}"
 
 
 class TestModel(BaseModel):
@@ -227,11 +273,13 @@ class ModelFactory:
     @classmethod
     def _create_model(cls, model_type: ModelType) -> BaseModel:
         if model_type == ModelType.STABLE_DIFFUSION:
-            raise ModelError("Stable Diffusion not supported. Use LANGCHAIN_OPENAI or DALLE instead.")
+            raise ModelError("Stable Diffusion not supported. Use REPLICATE_CONTROLNET or DALLE instead.")
         elif model_type == ModelType.DALLE:
             return DalleModel()
         elif model_type == ModelType.LANGCHAIN_OPENAI:
             return LangChainOpenAIModel()
+        elif model_type in [ModelType.REPLICATE_CONTROLNET, ModelType.REPLICATE_REALISTIC]:
+            return ReplicateModel()
         elif model_type == ModelType.TEST_MODE:
             return TestModel()
         else:
