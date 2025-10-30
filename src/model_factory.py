@@ -173,6 +173,11 @@ class ReplicateModel(BaseModel):
         if not config.replicate_api_token:
             raise ModelError("Replicate API token required")
         import replicate
+        import ssl
+        import urllib3
+        # Disable SSL warnings and verification for corporate networks
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        ssl._create_default_https_context = ssl._create_unverified_context
         self.client = replicate.Client(api_token=config.replicate_api_token)
     
     async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
@@ -184,8 +189,8 @@ class ReplicateModel(BaseModel):
                 input={
                     "image": room_url,
                     "prompt": prompt,
-                    "num_samples": 1,
-                    "image_resolution": "1024",
+                    "num_samples": "1",
+                    "image_resolution": "768",
                     "strength": 0.7,
                     "guidance_scale": 7.5
                 }
