@@ -32,6 +32,7 @@ class LangChainOpenAIModel(BaseModel):
         super().__init__()
         if not config.openai_api_key or config.openai_api_key == "your_api_key_here":
             raise ModelError("OpenAI API key required for LangChain model")
+        self.client = OpenAI(api_key=config.openai_api_key)
         self.llm = ChatOpenAI(
             model=config.langchain_model_name,
             temperature=config.langchain_temperature,
