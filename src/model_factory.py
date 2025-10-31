@@ -88,8 +88,7 @@ class LangChainOpenAIModel(BaseModel):
                 'model': 'gpt-image-1',
                 'prompt': 'Transform the room in the first image by replacing all window blinds with elegant floor-length curtains using the fabric pattern from the second image. Keep the room layout identical, only change window treatments.',
                 'n': 1,
-                'size': '1024x1024',
-                'response_format': 'url'
+                'size': '1024x1024'
             }
             
             headers = {
@@ -368,6 +367,10 @@ class DalleModel(BaseModel):
 
 class ModelFactory:
     _instances: Dict[ModelType, BaseModel] = {}
+    
+    @classmethod
+    def clear_cache(cls):
+        cls._instances.clear()
     
     @classmethod
     def get_model(cls, model_type: ModelType) -> BaseModel:
