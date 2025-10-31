@@ -104,12 +104,20 @@ class LangChainOpenAIModel(BaseModel):
             
             if response.status_code == 200:
                 result = response.json()
-                return result['data'][0]['url']
+                logger.info(f"API Response: {result}")
+                if 'data' in result and len(result['data']) > 0:
+                    if 'url' in result['data'][0]:
+                        return result['data'][0]['url']
+                    elif 'b64_json' in result['data'][0]:
+                        return result['data'][0]['b64_json']
+                return str(result)
             else:
                 raise Exception(f"API error: {response.text}")
             
         except Exception as e:
             logger.error(f"OpenAI image edit error: {str(e)}")
+            if "'url'" in str(e):
+                raise ModelError(f"Response format error - check API response structure")
             raise ModelError(f"Failed to edit image: {str(e)}")
     
     async def _enhance_prompt(self, base_prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
