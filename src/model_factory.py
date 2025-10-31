@@ -76,11 +76,10 @@ class LangChainOpenAIModel(BaseModel):
             fabric_image.save(fabric_bytes, format='PNG')
             fabric_bytes.seek(0)
             
-            # Use OpenAI image edit API with mask (fabric as reference)
+            # Use OpenAI image edit API with both images
             response = self.client.images.edit(
-                image=room_bytes,
-                mask=fabric_bytes,
-                prompt=f"Replace window treatments with curtains using the fabric pattern shown in the mask, {prompt}",
+                image=[room_bytes, fabric_bytes],
+                prompt=f"Transform the room in the first image by replacing all window blinds and treatments with elegant floor-length curtains made from the exact fabric pattern, texture, and colors shown in the second image. The curtains should hang from ceiling to floor, covering all windows completely. Keep the room's furniture, walls, lighting, and layout exactly identical. Only replace window treatments with the new curtains. Make it photorealistic with natural fabric draping and folds.",
                 n=1,
                 size="1024x1024"
             )
