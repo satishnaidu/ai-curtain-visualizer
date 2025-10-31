@@ -79,10 +79,10 @@ class LangChainOpenAIModel(BaseModel):
             fabric_bytes.seek(0)
             
             # Use OpenAI image edit API with multiple images
-            files = {
-                'image[]': [('room.png', room_bytes.getvalue(), 'image/png'),
-                           ('fabric.png', fabric_bytes.getvalue(), 'image/png')]
-            }
+            files = [
+                ('image[]', ('room.png', room_bytes.getvalue(), 'image/png')),
+                ('image[]', ('fabric.png', fabric_bytes.getvalue(), 'image/png'))
+            ]
             
             data = {
                 'model': 'gpt-image-1',
