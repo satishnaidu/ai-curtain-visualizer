@@ -11,6 +11,11 @@ from src.user_manager import UserManager
 from src.payment_simulator import PaymentSimulator
 from src.gallery_manager import GalleryManager
 
+try:
+    import stripe
+except ImportError:
+    stripe = None
+
 # Setup logging and create logs directory
 Path("logs").mkdir(exist_ok=True)
 setup_logging()
@@ -68,6 +73,23 @@ class CurtainVisualizerApp:
 
     def run(self):
         """Run the Streamlit application with enhanced error handling"""
+        # Debug: Show current URL parameters
+        query_params = st.query_params
+        logger.info(f"Current URL parameters: {dict(query_params)}")
+        
+        # Check for user phone in URL params FIRST (from payment redirect)
+        if "phone" in query_params:
+            # Decode URL encoded phone number
+            phone = query_params["phone"].replace("%2B", "+")
+            st.session_state.user_phone = phone
+            logger.info(f"User phone set from URL parameter: {phone}")
+            # Clear the phone parameter to clean up URL
+            st.query_params.pop("phone", None)
+        
+        # Check for payment success redirect
+        if self._handle_payment_success():
+            return
+        
         # Create tabs
         tab1, tab2 = st.tabs(["🎨 Generate", "🖼️ Gallery"])
         
@@ -258,6 +280,11 @@ class CurtainVisualizerApp:
     
     def _handle_authentication(self) -> bool:
         """Handle user authentication and credit management"""
+        # Debug: Show session state
+        logger.info(f"Session state keys: {list(st.session_state.keys())}")
+        if 'user_phone' in st.session_state:
+            logger.info(f"User phone in session: {st.session_state.user_phone}")
+        
         # Check if payment form should be shown
         if st.session_state.get('show_payment', False):
             if self._handle_payment():
@@ -400,12 +427,86 @@ class CurtainVisualizerApp:
         """Handle payment processing"""
         phone = st.session_state.user_phone
         
-        if self.payment_simulator.show_payment_form(phone):
-            # Add credits to user account
-            self.user_manager.add_credits(phone, 20)
+        # Store selected package in session state
+        if 'selected_package' not in st.session_state:
+            st.session_state.selected_package = "20"
+        
+        # Get the payment result
+        payment_result = self.payment_simulator.show_payment_form(phone)
+        if payment_result:
+            # Get credits from selected package
+            package_info = self.payment_simulator.credit_packages.get(st.session_state.selected_package, {"credits": 20})
+            self.user_manager.add_credits(phone, package_info["credits"])
             return True
         
         return False
+    
+    def _handle_payment_success(self) -> bool:
+        """Handle Stripe payment success redirect"""
+        query_params = st.query_params
+        
+        if "session_id" in query_params:
+            session_id = query_params["session_id"]
+            
+            # Add credits if not already processed
+            payment_key = f"payment_processed_{session_id}"
+            if not st.session_state.get(payment_key, False) and 'user_phone' in st.session_state:
+                credits_to_add = self._get_credits_from_session(session_id)
+                self.user_manager.add_credits(st.session_state.user_phone, credits_to_add)
+                st.session_state[payment_key] = True
+                logger.info(f"Added {credits_to_add} credits to {st.session_state.user_phone}")
+            
+            st.success("🎉 Payment Successful!")
+            st.balloons()
+            
+            if 'user_phone' in st.session_state:
+                credits = self.user_manager.get_user_credits(st.session_state.user_phone)
+                st.info(f"💳 Your account now has {credits} credits")
+            
+            if st.button("🎨 Start Generating Images", type="primary", use_container_width=True):
+                # Only clear session_id, keep user_phone
+                st.query_params.pop("session_id", None)
+                st.rerun()
+            
+            return True
+        
+        return False
+    
+    def _get_user_from_payment_session(self, session_id: str) -> str:
+        """Retrieve user phone from payment session"""
+        try:
+            # Try to get from Stripe if configured
+            if stripe and config.stripe_secret_key:
+                stripe.api_key = config.stripe_secret_key
+                session = stripe.checkout.Session.retrieve(session_id)
+                return session.metadata.get('phone', '')
+        except Exception as e:
+            logger.warning(f"Could not retrieve Stripe session: {e}")
+        
+        # Fallback: check if phone is in session state from checkout
+        if hasattr(st.session_state, 'checkout_phone'):
+            return st.session_state.checkout_phone
+        
+        # Last resort: return empty string to trigger phone verification
+        return ''
+    
+    def _get_credits_from_session(self, session_id: str) -> int:
+        """Retrieve credits amount from payment session"""
+        try:
+            # Try to get from Stripe if configured
+            if stripe and config.stripe_secret_key:
+                stripe.api_key = config.stripe_secret_key
+                session = stripe.checkout.Session.retrieve(session_id)
+                return int(session.metadata.get('credits', 20))
+        except Exception as e:
+            logger.warning(f"Could not retrieve credits from Stripe session: {e}")
+        
+        # Fallback: check if credits are in session state
+        if hasattr(st.session_state, 'pending_credits'):
+            return st.session_state.pending_credits
+        
+        # Default fallback
+        return 20
 
 
 if __name__ == "__main__":

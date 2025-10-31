@@ -11,3 +11,4 @@ loguru>=0.7.0
 cachetools>=5.3.0
 requests>=2.31.0
 replicate>=0.15.0
+stripe>=7.0.0

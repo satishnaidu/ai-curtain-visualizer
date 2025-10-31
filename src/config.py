@@ -22,6 +22,8 @@ class Config(BaseSettings):
     # API Keys
     openai_api_key: Optional[str] = Field("your_api_key_here", env="OPENAI_API_KEY")
     replicate_api_token: Optional[str] = Field(None, env="REPLICATE_API_TOKEN")
+    stripe_secret_key: Optional[str] = Field(None, env="STRIPE_SECRET_KEY")
+    stripe_publishable_key: Optional[str] = Field(None, env="STRIPE_PUBLISHABLE_KEY")
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -32,6 +34,10 @@ class Config(BaseSettings):
                     self.openai_api_key = st.secrets['OPENAI_API_KEY']
                 if 'REPLICATE_API_TOKEN' in st.secrets:
                     self.replicate_api_token = st.secrets['REPLICATE_API_TOKEN']
+                if 'STRIPE_SECRET_KEY' in st.secrets:
+                    self.stripe_secret_key = st.secrets['STRIPE_SECRET_KEY']
+                if 'STRIPE_PUBLISHABLE_KEY' in st.secrets:
+                    self.stripe_publishable_key = st.secrets['STRIPE_PUBLISHABLE_KEY']
                 if 'TEST_MODE' in st.secrets:
                     self.test_mode = st.secrets['TEST_MODE']
             except:
