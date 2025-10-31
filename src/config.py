@@ -45,7 +45,7 @@ class Config(BaseSettings):
     max_image_dimension: int = 1024  # Max width/height for optimization
     
     # Model Configuration  
-    model_type: ModelType = ModelType.REPLICATE_CONTROLNET  # Better for image transformation
+    model_type: ModelType = ModelType.TEST_MODE  # Better composite approach
     
     @property
     def effective_model_type(self) -> ModelType:
@@ -53,11 +53,11 @@ class Config(BaseSettings):
         if self.test_mode:
             return ModelType.TEST_MODE
         
-        # Priority: Replicate -> DALL-E -> Test
-        if self.replicate_api_token:
+        # Priority: OpenAI -> Replicate -> Test
+        if self.openai_api_key and self.openai_api_key != "your_api_key_here":
+            return ModelType.LANGCHAIN_OPENAI
+        elif self.replicate_api_token:
             return ModelType.REPLICATE_CONTROLNET
-        elif self.openai_api_key and self.openai_api_key != "your_api_key_here":
-            return ModelType.DALLE
         else:
             return ModelType.TEST_MODE
     stable_diffusion_model: str = "stabilityai/stable-diffusion-2-1"

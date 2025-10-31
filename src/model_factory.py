@@ -65,24 +65,31 @@ class LangChainOpenAIModel(BaseModel):
     
     async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
         try:
-            # Generate enhanced prompt using LangChain
-            enhanced_prompt = await self._enhance_prompt(prompt, room_image, fabric_image)
+            # Convert both images to bytes for OpenAI
+            from io import BytesIO
             
-            # Use OpenAI DALL-E for actual image generation
-            client = OpenAI(api_key=config.openai_api_key)
-            response = client.images.generate(
-                model=config.dalle_model,
-                prompt=enhanced_prompt,
+            room_bytes = BytesIO()
+            room_image.save(room_bytes, format='PNG')
+            room_bytes.seek(0)
+            
+            fabric_bytes = BytesIO()
+            fabric_image.save(fabric_bytes, format='PNG')
+            fabric_bytes.seek(0)
+            
+            # Use OpenAI image edit API with mask (fabric as reference)
+            response = self.client.images.edit(
+                image=room_bytes,
+                mask=fabric_bytes,
+                prompt=f"Replace window treatments with curtains using the fabric pattern shown in the mask, {prompt}",
                 n=1,
-                size="1024x1024",
-                quality="hd"
+                size="1024x1024"
             )
             
             return response.data[0].url
             
         except Exception as e:
-            logger.error(f"LangChain model error: {str(e)}")
-            raise ModelError(f"Failed to generate image: {str(e)}")
+            logger.error(f"OpenAI image edit error: {str(e)}")
+            raise ModelError(f"Failed to edit image: {str(e)}")
     
     async def _enhance_prompt(self, base_prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
         try:
@@ -121,6 +128,14 @@ class LangChainOpenAIModel(BaseModel):
             
         except Exception:
             return "An interior room with windows suitable for curtain installation, preserving the existing decor and layout"
+    
+    def _image_to_base64(self, image: Image.Image) -> str:
+        """Convert PIL image to base64 string"""
+        import base64
+        from io import BytesIO
+        buffer = BytesIO()
+        image.save(buffer, format='JPEG', quality=85)
+        return base64.b64encode(buffer.getvalue()).decode()
     
     def _extract_fabric_colors(self, fabric_image: Image.Image) -> str:
         # Enhanced fabric analysis
@@ -260,21 +275,44 @@ class TestModel(BaseModel):
             raise ModelError(f"Test generation failed: {str(e)}")
     
     def _create_mock_visualization(self, room_image: Image.Image, fabric_image: Image.Image) -> Image.Image:
-        """Create a simple mock by overlaying fabric pattern on room image"""
-        # Resize fabric to fit room image
-        fabric_resized = fabric_image.resize((room_image.width // 4, room_image.height // 2))
+        """Create curtain visualization by intelligently compositing fabric onto window areas"""
+        from PIL import ImageDraw, ImageFilter
         
-        # Create a copy of room image
         result = room_image.copy()
+        width, height = result.size
         
-        # Paste fabric pattern in the center (simulating curtains)
-        x_offset = (room_image.width - fabric_resized.width) // 2
-        y_offset = (room_image.height - fabric_resized.height) // 4
+        # Create curtain overlays for window areas
+        # Detect potential window areas (typically upper portion of image)
+        window_height = height // 2
+        curtain_width = width // 3
         
-        # Blend the fabric onto the room image
-        result.paste(fabric_resized, (x_offset, y_offset))
+        # Create fabric pattern for curtains
+        fabric_resized = fabric_image.resize((curtain_width, window_height))
         
-        return result
+        # Add transparency for realistic curtain effect
+        fabric_with_alpha = fabric_resized.convert('RGBA')
+        
+        # Create curtain overlay with some transparency
+        overlay = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+        
+        # Place curtains at window positions (left, center, right)
+        positions = [0, width//3, 2*width//3]
+        
+        for x_pos in positions:
+            if x_pos + curtain_width <= width:
+                # Add slight transparency and blend
+                curtain = fabric_with_alpha.copy()
+                alpha = curtain.split()[-1]
+                alpha = alpha.point(lambda p: int(p * 0.8))  # 80% opacity
+                curtain.putalpha(alpha)
+                
+                overlay.paste(curtain, (x_pos, 0), curtain)
+        
+        # Composite the curtains onto the room
+        result = result.convert('RGBA')
+        result = Image.alpha_composite(result, overlay)
+        
+        return result.convert('RGB')
 
 
 class DalleModel(BaseModel):
