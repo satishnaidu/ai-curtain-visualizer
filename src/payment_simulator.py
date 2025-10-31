@@ -34,6 +34,16 @@ class StripePaymentProcessor:
         
         package_info = self.credit_packages[selected_package]
         
+        # Debug: Check secrets directly
+        st.write(f"**Debug Info:**")
+        st.write(f"Config stripe key: {bool(config.stripe_secret_key)}")
+        try:
+            st.write(f"Direct secrets check: {'STRIPE_SECRET_KEY' in st.secrets}")
+            if 'STRIPE_SECRET_KEY' in st.secrets:
+                st.write(f"Secret value exists: {bool(st.secrets['STRIPE_SECRET_KEY'])}")
+        except Exception as e:
+            st.write(f"Secrets error: {e}")
+        
         if not config.stripe_secret_key:
             st.warning("⚠️ Stripe not configured. Using demo mode.")
             return self._show_demo_form(package_info)
