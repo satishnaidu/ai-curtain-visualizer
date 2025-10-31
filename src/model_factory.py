@@ -80,8 +80,8 @@ class LangChainOpenAIModel(BaseModel):
             
             # Use OpenAI image edit API with multiple images
             files = [
-                ('image[]', ('room.png', room_bytes.getvalue(), 'image/png')),
-                ('image[]', ('fabric.png', fabric_bytes.getvalue(), 'image/png'))
+                ('image[]', ('room.png', room_bytes, 'image/png')),
+                ('image[]', ('fabric.png', fabric_bytes, 'image/png'))
             ]
             
             data = {
