@@ -68,6 +68,7 @@ class LangChainOpenAIModel(BaseModel):
         try:
             # Convert both images to bytes for OpenAI
             from io import BytesIO
+            import requests
             
             room_bytes = BytesIO()
             room_image.save(room_bytes, format='PNG')
@@ -77,16 +78,35 @@ class LangChainOpenAIModel(BaseModel):
             fabric_image.save(fabric_bytes, format='PNG')
             fabric_bytes.seek(0)
             
-            # Use OpenAI image edit API with mask (fabric as reference)
-            response = self.client.images.edit(
-                model= "gpt-image-1",
-                image=[room_bytes, fabric_bytes],
-                prompt=f"Transform the room in the first image by replacing all window blinds and treatments with elegant floor-length curtains made from the exact fabric pattern, texture, and colors shown in the second image. The curtains should hang from ceiling to floor, covering all windows completely. Keep the room's furniture, walls, lighting, and layout exactly identical. Only replace window treatments with the new curtains. Make it photorealistic with natural fabric draping and folds.",
-                n=1,
-                size="1024x1024"
+            # Use OpenAI image edit API with multiple images
+            files = [
+                ('image[]', ('room.png', room_bytes, 'image/png')),
+                ('image[]', ('fabric.png', fabric_bytes, 'image/png'))
+            ]
+            
+            data = {
+                'model': 'gpt-image-1',
+                'prompt': 'Transform the room in the first image by replacing all window blinds with elegant floor-length curtains using the fabric pattern from the second image. Keep the room layout identical, only change window treatments.',
+                'n': 1,
+                'size': '1024x1024'
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {config.openai_api_key}'
+            }
+            
+            response = requests.post(
+                'https://api.openai.com/v1/images/edits',
+                files=files,
+                data=data,
+                headers=headers
             )
             
-            return response.data[0].url
+            if response.status_code == 200:
+                result = response.json()
+                return result['data'][0]['url']
+            else:
+                raise Exception(f"API error: {response.text}")
             
         except Exception as e:
             logger.error(f"OpenAI image edit error: {str(e)}")
