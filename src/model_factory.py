@@ -109,7 +109,14 @@ class LangChainOpenAIModel(BaseModel):
                     if 'url' in result['data'][0]:
                         return result['data'][0]['url']
                     elif 'b64_json' in result['data'][0]:
-                        return result['data'][0]['b64_json']
+                        # Convert base64 to temporary file and return path
+                        import base64
+                        import tempfile
+                        b64_data = result['data'][0]['b64_json']
+                        image_data = base64.b64decode(b64_data)
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
+                            tmp_file.write(image_data)
+                            return tmp_file.name
                 return str(result)
             else:
                 raise Exception(f"API error: {response.text}")
