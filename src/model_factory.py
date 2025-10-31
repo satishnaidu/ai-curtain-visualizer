@@ -86,7 +86,7 @@ class LangChainOpenAIModel(BaseModel):
             
             data = {
                 'model': 'gpt-image-1',
-                'prompt': 'Transform the room by installing full-height curtains that extend from the ceiling all the way down to the floor, completely covering each window from top to bottom. Remove all existing window treatments and replace with floor-to-ceiling curtains using the fabric pattern from the second image. The curtains must start at the ceiling line and hang straight down to touch the floor, covering the entire window height. Keep all furniture and room layout identical.',
+                'prompt': 'Transform the room by installing curtain tracks on the ceiling and hanging full-height curtains that extend from the ceiling-mounted curtain track all the way down to the floor. Remove all existing window treatments and install curtains on ceiling tracks using the fabric pattern from the second image. The curtains must hang from ceiling-mounted curtain tracks and drop straight down to touch the floor, completely covering each window from top to bottom. Keep all furniture and room layout identical.',
                 'n': 1,
                 'size': '1024x1024'
             }
