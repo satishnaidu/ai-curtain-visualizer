@@ -305,10 +305,18 @@ class ImageProcessor:
         filepath = user_dir / filename
         
         if isinstance(result, str):  # URL from API
-            # Download and save image from URL
-            response = requests.get(result)
-            with open(filepath, 'wb') as f:
-                f.write(response.content)
+            if result.startswith('data:image/'):
+                # Handle data URL (base64)
+                import base64
+                header, data = result.split(',', 1)
+                image_data = base64.b64decode(data)
+                with open(filepath, 'wb') as f:
+                    f.write(image_data)
+            else:
+                # Handle regular URL
+                response = requests.get(result)
+                with open(filepath, 'wb') as f:
+                    f.write(response.content)
         elif hasattr(result, 'url'):  # Replicate FileOutput object
             # Download from FileOutput URL
             response = requests.get(result.url)
