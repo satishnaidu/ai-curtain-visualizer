@@ -85,7 +85,6 @@ class LangChainOpenAIModel(BaseModel):
             ]
             
             data = {
-                'model': 'gpt-image-1',
                 'prompt': 'Transform the room in the first image by replacing all window blinds with elegant floor-length curtains using the fabric pattern from the second image. Keep the room layout identical, only change window treatments.',
                 'n': 1,
                 'size': '1024x1024'
