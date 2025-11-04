@@ -70,20 +70,25 @@ class LangChainOpenAIModel(BaseModel):
         from .config import CurtainStyle
         
         style_prompts = {
-            CurtainStyle.CLOSED.value: """Transform the room by installing curtain tracks on the ceiling and hanging full-height pleated curtains 
-                        with deep, elegant folds that extend from the ceiling track to the floor. The curtains should have 
-                        consistent, evenly-spaced pleats creating a luxurious, formal appearance. Use the fabric pattern from 
-                        the second image and ensure the pleats are well-defined and uniform with style referenced in third image""",
+            CurtainStyle.CLOSED.value: """Transform the room by installing one continuous curtain track spanning the entire wall width above all windows. 
+                        Install curtains that hang straight down in graceful folds, covering all windows completely. 
+                        The curtain fabric should feature the SMALL REPEATING PATTERN from the second image, tiled seamlessly 
+                        across the entire curtain surface - the pattern should repeat many times in a regular grid, 
+                        maintaining the original small scale of the pattern elements. The curtains should extend from ceiling to floor 
+                        as one unified treatment across the entire wall.""",
 
-            CurtainStyle.HALF_OPEN.value: """Transform the room by installing curtain tracks on the ceiling and creating a dramatic swept-aside 
-                           curtain arrangement. The curtains should be elegantly pulled to the sides of each window, creating 
-                           graceful sweeping folds while still extending from ceiling to floor. Use the fabric pattern from the 
-                           second image and ensure the side-swept arrangement looks natural and sophisticated with style referenced in third image""",
+            CurtainStyle.HALF_OPEN.value: """Transform the room by installing one continuous curtain track spanning the entire wall width above all windows. 
+                           Install a single, wide curtain panel that covers the full wall width. The curtain fabric should feature 
+                           the SMALL REPEATING PATTERN from the second image, tiled seamlessly across the entire curtain surface - 
+                           the pattern should repeat many times in a regular grid, maintaining the original small scale of the pattern elements. 
+                           The curtain should be elegantly gathered and pulled to one side, creating an asymmetrical drape. 
+                           This should be ONE continuous curtain, not separate curtains for each window.""",
 
-            CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a double-track curtain system on the ceiling with both sheer 
-                             and regular curtains. The sheer white curtains should be mounted closest to the window, with the 
-                             main curtains using the provided fabric pattern mounted on the outer track. Both layers should 
-                             extend from ceiling to floor, creating an elegant layered effect with style referenced in third image"""
+            CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a double-track curtain system with sheer white curtains 
+                             closest to the window and main curtains on the outer track. The main curtains should feature 
+                             the SMALL REPEATING PATTERN from the second image, tiled seamlessly across the curtain surface - 
+                             the pattern should repeat many times in a regular grid, maintaining the original small scale. 
+                             Both layers should extend from ceiling to floor."""
         }
 
         return style_prompts.get(style, style_prompts[CurtainStyle.HALF_OPEN.value])
