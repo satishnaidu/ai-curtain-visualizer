@@ -18,6 +18,11 @@ class ModelType(Enum):
     REPLICATE_REALISTIC = "replicate_realistic"
     TEST_MODE = "test_mode"
 
+class CurtainStyle(Enum):
+    CLOSED = "closed"
+    HALF_OPEN = "half_open"
+    WITH_SHEERS = "with_sheers"
+
 class Config(BaseSettings):
     # API Keys
     openai_api_key: Optional[str] = Field("your_api_key_here", env="OPENAI_API_KEY")
@@ -53,6 +58,14 @@ class Config(BaseSettings):
     # Model Configuration  
     model_type: ModelType = ModelType.TEST_MODE  # Better composite approach
     
+    # Curtain Style Configuration
+    default_curtain_style: CurtainStyle = CurtainStyle.HALF_OPEN
+    curtain_style_descriptions: dict = {
+        CurtainStyle.CLOSED: "Elegant floor-length curtains hanging in graceful folds",
+        CurtainStyle.HALF_OPEN: "Curtains elegantly pulled to one side, creating an asymmetrical drape",
+        CurtainStyle.WITH_SHEERS: "Layered curtains with sheer inner layer for filtered light"
+    }
+    
     @property
     def effective_model_type(self) -> ModelType:
         """Get the effective model type with fallback priority"""
@@ -83,6 +96,10 @@ class Config(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        # Reference images for different curtain styles
+        curtain_folded_image_path = "assets/reference/curtain_folded.png"
+        curtain_half_open_image_path = "assets/reference/curtain_half_open.png"
+        curtain_sheers_image_path = "assets/reference/curtain_sheers.png"
 
 # Initialize config safely
 try:

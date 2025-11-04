@@ -5,7 +5,7 @@ from pathlib import Path
 from loguru import logger
 from src.image_processor import ImageProcessor
 from src.exceptions import ImageProcessingError, ImageValidationError, APIError, ModelError
-from src.config import config, ModelType
+from src.config import config, ModelType, CurtainStyle
 from src.logging_config import setup_logging
 from src.user_manager import UserManager
 from src.payment_simulator import PaymentSimulator
@@ -130,6 +130,25 @@ class CurtainVisualizerApp:
                 st.image(fabric_photo, caption=f"Fabric Pattern ({fabric_photo.size} bytes)", width='stretch')
                 st.caption(f"File: {fabric_photo.name} | Size: {fabric_photo.size:,} bytes (will be auto-optimized)")
 
+        # Curtain Style Selection
+        st.divider()
+        st.subheader("🎨 Curtain Style")
+        
+        # Initialize session state for curtain style if not present
+        if 'curtain_style' not in st.session_state:
+            st.session_state.curtain_style = config.default_curtain_style
+        
+        # Create style selection with descriptions
+        style_options = {style: config.curtain_style_descriptions[style] for style in CurtainStyle}
+        selected_style = st.selectbox(
+            "Choose your curtain style",
+            options=list(style_options.keys()),
+            format_func=lambda x: f"{x.value.replace('_', ' ').title()} - {style_options[x]}",
+            index=list(CurtainStyle).index(st.session_state.curtain_style),
+            key="style_selector"
+        )
+        st.session_state.curtain_style = selected_style
+        
         # Generation section
         st.divider()
         
@@ -189,7 +208,14 @@ class CurtainVisualizerApp:
                 status_text.text("Validating images...")
                 
                 # Run async processing
-                result, saved_path = asyncio.run(self._async_generate(room_photo, fabric_photo, progress_bar, status_text, st.session_state.user_phone))
+                result, saved_path = asyncio.run(self._async_generate(
+                    room_photo, 
+                    fabric_photo, 
+                    progress_bar, 
+                    status_text, 
+                    st.session_state.user_phone,
+                    st.session_state.curtain_style
+                ))
                 
                 progress_bar.progress(100)
                 status_text.text("✅ Generation complete!")
@@ -265,13 +291,13 @@ class CurtainVisualizerApp:
             st.error(f"💥 An unexpected error occurred: {str(e)}")
             st.info("Please try again or contact support if the issue persists.")
     
-    async def _async_generate(self, room_photo, fabric_photo, progress_bar, status_text, user_phone):
+    async def _async_generate(self, room_photo, fabric_photo, progress_bar, status_text, user_phone, curtain_style: CurtainStyle):
         """Async wrapper for image generation with progress updates"""
         progress_bar.progress(40)
         status_text.text("Analyzing images...")
         
-        # Process images with user phone
-        result, saved_path = await self.image_processor.process_images(room_photo, fabric_photo, user_phone)
+        # Process images with user phone and curtain style
+        result, saved_path = await self.image_processor.process_images(room_photo, fabric_photo, user_phone, curtain_style)
         
         progress_bar.progress(80)
         status_text.text("Saving image...")

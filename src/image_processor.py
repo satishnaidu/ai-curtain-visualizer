@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union, Tuple
 from loguru import logger
-from .config import config
+from .config import config, CurtainStyle
 from .exceptions import ImageValidationError, APIError, ImageProcessingError, ModelError
 from .model_factory import ModelFactory
 from .gallery_manager import GalleryManager
@@ -35,7 +35,7 @@ class ImageProcessor:
                 "INVALID_FILE_TYPE"
             )
 
-    async def process_images(self, room_photo, fabric_photo, user_phone=None) -> Union[Image.Image, str]:
+    async def process_images(self, room_photo, fabric_photo, user_phone=None, curtain_style: CurtainStyle = None) -> Union[Image.Image, str]:
         """Process room and fabric photos asynchronously"""
         try:
             # Validate images
@@ -48,7 +48,7 @@ class ImageProcessor:
             
             logger.info(f"Processing optimized images: room={room_image.size}, fabric={fabric_image.size}")
 
-            result, saved_path = await self.generate_curtain_visualization(room_image, fabric_image, user_phone, room_photo.name, fabric_photo.name)
+            result, saved_path = await self.generate_curtain_visualization(room_image, fabric_image, user_phone, curtain_style, room_photo.name, fabric_photo.name)
             
             # Add to gallery after successful generation
             self.gallery_manager.add_to_gallery(room_photo, fabric_photo, saved_path, user_phone)
@@ -61,7 +61,7 @@ class ImageProcessor:
             logger.error(f"Unexpected error in image processing: {str(e)}")
             raise ImageProcessingError(f"Error processing images: {str(e)}", "PROCESSING_FAILED")
 
-    async def generate_curtain_visualization(self, room_image: Image.Image, fabric_image: Image.Image, user_phone=None, room_name="room.jpg", fabric_name="fabric.jpg") -> Union[Image.Image, str]:
+    async def generate_curtain_visualization(self, room_image: Image.Image, fabric_image: Image.Image, user_phone=None, curtain_style: CurtainStyle = None, room_name="room.jpg", fabric_name="fabric.jpg") -> Union[Image.Image, str]:
         """Generate curtain visualization using selected model with retry logic"""
         for attempt in range(config.max_retries):
             try:
@@ -69,8 +69,8 @@ class ImageProcessor:
                 fabric_analysis = self.analyze_fabric(fabric_image)
                 room_analysis = self.analyze_room(room_image)
                 
-                # Generate enhanced prompt
-                prompt = self.generate_enhanced_prompt(room_analysis, fabric_analysis)
+                # Generate enhanced prompt with curtain style
+                prompt = self.generate_enhanced_prompt(room_analysis, fabric_analysis, curtain_style)
                 
                 logger.info(f"Generating visualization (attempt {attempt + 1}/{config.max_retries})")
                 
@@ -257,14 +257,18 @@ class ImageProcessor:
         except Exception:
             return "classic fabric styling"
 
-    def generate_enhanced_prompt(self, room_analysis: dict, fabric_analysis: dict) -> str:
+    def generate_enhanced_prompt(self, room_analysis: dict, fabric_analysis: dict, curtain_style: CurtainStyle = None) -> str:
         """Generate enhanced prompt for any room transformation"""
+        # Get curtain style description
+        style = curtain_style or config.default_curtain_style
+        style_desc = config.curtain_style_descriptions[style]
+        
         return (
-            f"Transform this interior room by replacing any existing window treatments (blinds, shades, or bare windows) with elegant floor-length curtains. "
+            f"Transform this interior room by replacing any existing window treatments (blinds, shades, or bare windows) with {style_desc}. "
             f"Maintain the exact same room layout, furniture placement, wall colors, and architectural features. "
             f"Keep the same {room_analysis['lighting']} and {room_analysis['color_scheme']}. "
             f"Add beautiful curtains made from fabric with {fabric_analysis['colors']} and {fabric_analysis['texture']} featuring {fabric_analysis['pattern']}. "
-            f"The curtains should hang gracefully from ceiling to floor, properly fitted to all windows in the space. "
+            f"The curtains should be styled as {style.value.replace('_', ' ')}, hanging from ceiling to floor, properly fitted to all windows in the space. "
             f"Preserve the room's {room_analysis['style']} aesthetic while enhancing it with the new curtains. "
             f"Show realistic fabric draping, natural folds, and proper proportions. "
             f"Professional interior design photography with natural lighting and shadows, high resolution."

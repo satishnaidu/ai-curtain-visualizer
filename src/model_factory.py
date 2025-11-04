@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from PIL import Image
 import asyncio
+import os
 from typing import Optional, Dict, Any
 from cachetools import TTLCache
 from loguru import logger
@@ -63,8 +64,43 @@ class LangChainOpenAIModel(BaseModel):
             | self.llm
             | StrOutputParser()
         )
-    
-    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
+
+    def get_curtain_style_prompt(self, style: str) -> str:
+        """Return appropriate prompt based on curtain style"""
+        style_prompts = {
+            'folded': """Transform the room by installing curtain tracks on the ceiling and hanging full-height pleated curtains 
+                        with deep, elegant folds that extend from the ceiling track to the floor. The curtains should have 
+                        consistent, evenly-spaced pleats creating a luxurious, formal appearance. Use the fabric pattern from 
+                        the second image and ensure the pleats are well-defined and uniform with style referenced in third image""",
+
+            'half_open': """Transform the room by installing curtain tracks on the ceiling and creating a dramatic swept-aside 
+                           curtain arrangement. The curtains should be elegantly pulled to the sides of each window, creating 
+                           graceful sweeping folds while still extending from ceiling to floor. Use the fabric pattern from the 
+                           second image and ensure the side-swept arrangement looks natural and sophisticated with style referenced in third image""",
+
+            'with_sheers': """Transform the room by installing a double-track curtain system on the ceiling with both sheer 
+                             and regular curtains. The sheer white curtains should be mounted closest to the window, with the 
+                             main curtains using the provided fabric pattern mounted on the outer track. Both layers should 
+                             extend from ceiling to floor, creating an elegant layered effect with style referenced in third image"""
+        }
+
+        return style_prompts.get(style, style_prompts['half_open'])  # Default to folded if style not found
+
+    def get_style_reference_image(self, style: str, config) -> tuple:
+        """Return reference image path based on curtain style"""
+        style_images = {
+            'folded': config.curtain_folded_image_path,
+            'half_open': config.curtain_half_open_image_path,
+            'with_sheers': config.curtain_sheers_image_path
+        }
+
+        image_path = style_images.get(style)
+        if image_path and os.path.exists(image_path):
+            with open(image_path, 'rb') as f:
+                return f.read()
+        return None
+
+    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = 'half_open') -> str:
         try:
             # Convert both images to bytes for OpenAI
             from io import BytesIO
@@ -83,14 +119,23 @@ class LangChainOpenAIModel(BaseModel):
                 ('image[]', ('room.png', room_bytes, 'image/png')),
                 ('image[]', ('fabric.png', fabric_bytes, 'image/png'))
             ]
-            
+            # Add style reference image if available
+            style_bytes = self.get_style_reference_image(curtain_style, config)
+            if style_bytes:
+                files.append(
+                    ('image[]', (f'style_{curtain_style}.png', style_bytes, 'image/png'))
+                )
+
+            # Get appropriate prompt for the selected style
+            style_prompt = self.get_curtain_style_prompt(curtain_style)
+
             data = {
                 'model': 'gpt-image-1',
-                'prompt': 'Transform the room by installing curtain tracks on the ceiling and hanging full-height curtains that extend from the ceiling-mounted curtain track all the way down to the floor. Remove all existing window treatments and install curtains on ceiling tracks using the fabric pattern from the second image. The curtains must hang from ceiling-mounted curtain tracks and drop straight down to touch the floor, completely covering each window from top to bottom. Keep all furniture and room layout identical.',
+                'prompt': style_prompt,
                 'n': 1,
                 'size': '1024x1024'
             }
-            
+
             headers = {
                 'Authorization': f'Bearer {config.openai_api_key}'
             }
