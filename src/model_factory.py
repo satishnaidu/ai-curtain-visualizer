@@ -130,10 +130,10 @@ class LangChainOpenAIModel(BaseModel):
             ]
             # Add style reference image if available
             style_bytes = self.get_style_reference_image(curtain_style, config)
-            if style_bytes:
-                files.append(
-                    ('image[]', (f'style_{curtain_style}.png', style_bytes, 'image/png'))
-                )
+             # if style_bytes:
+                 # files.append(
+                    #  ('image[]', (f'style_{curtain_style}.png', style_bytes, 'image/png'))
+                 # )
 
             # Get appropriate prompt for the selected style
             style_prompt = self.get_curtain_style_prompt(curtain_style)
