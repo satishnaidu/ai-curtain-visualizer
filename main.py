@@ -393,6 +393,16 @@ class CurtainVisualizerApp:
                 st.subheader("✨ AI Result")
                 if os.path.exists(entry.get("result_path", "")):
                     st.image(entry["result_path"], caption="Generated Visualization", width='stretch')
+                    # Add download button for the generated image
+                    with open(entry["result_path"], "rb") as file:
+                        st.download_button(
+                            label="📥 Download",
+                            data=file.read(),
+                            file_name=os.path.basename(entry["result_path"]),
+                            mime="image/png",
+                            key=f"download_{i}",
+                            width='stretch'
+                        )
                 else:
                     st.error("Result image not found")
             
