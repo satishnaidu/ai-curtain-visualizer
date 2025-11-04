@@ -74,8 +74,9 @@ class ImageProcessor:
                 
                 logger.info(f"Generating visualization (attempt {attempt + 1}/{config.max_retries})")
                 
-                # Generate image using the selected model
-                result = await self.model.generate_image(prompt, room_image, fabric_image)
+                # Generate image using the selected model with curtain style
+                curtain_style_value = curtain_style.value if curtain_style else None
+                result = await self.model.generate_image(prompt, room_image, fabric_image, curtain_style=curtain_style_value)
                 
                 # Save result to filesystem with user phone
                 saved_path = await self._save_result(result, user_phone)

@@ -21,7 +21,7 @@ class BaseModel(ABC):
         self.cache = TTLCache(maxsize=100, ttl=config.cache_ttl)
         
     @abstractmethod
-    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> Image.Image:
+    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> Image.Image:
         pass
     
     def _get_cache_key(self, prompt: str, room_hash: str, fabric_hash: str) -> str:
@@ -67,31 +67,37 @@ class LangChainOpenAIModel(BaseModel):
 
     def get_curtain_style_prompt(self, style: str) -> str:
         """Return appropriate prompt based on curtain style"""
+        from .config import CurtainStyle
+        
         style_prompts = {
-            'folded': """Transform the room by installing curtain tracks on the ceiling and hanging full-height pleated curtains 
-                        with deep, elegant folds that extend from the ceiling track to the floor. The curtains should have 
-                        consistent, evenly-spaced pleats creating a luxurious, formal appearance. Use the fabric pattern from 
-                        the second image and ensure the pleats are well-defined and uniform with style referenced in third image""",
+            CurtainStyle.CLOSED.value: """Transform the room by replacing any existing window treatments with elegant floor-length curtains 
+                        that hang straight down in graceful folds. Use the fabric pattern from the second image.""",
 
-            'half_open': """Transform the room by installing curtain tracks on the ceiling and creating a dramatic swept-aside 
-                           curtain arrangement. The curtains should be elegantly pulled to the sides of each window, creating 
-                           graceful sweeping folds while still extending from ceiling to floor. Use the fabric pattern from the 
-                           second image and ensure the side-swept arrangement looks natural and sophisticated with style referenced in third image""",
+            CurtainStyle.HALF_OPEN.value: """Transform the room by replacing any existing window treatments with curtains that are 
+                           elegantly pulled to one side, creating an asymmetrical drape. Use the fabric pattern from the second image.""",
 
-            'with_sheers': """Transform the room by installing a double-track curtain system on the ceiling with both sheer 
-                             and regular curtains. The sheer white curtains should be mounted closest to the window, with the 
-                             main curtains using the provided fabric pattern mounted on the outer track. Both layers should 
-                             extend from ceiling to floor, creating an elegant layered effect with style referenced in third image"""
+            CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a layered curtain system with sheer white curtains 
+                             and heavier curtains using the fabric pattern from the second image.""",
+                             
+            CurtainStyle.PLEATED.value: """Transform the room by installing formal pleated curtains with structured folds 
+                        using the fabric pattern from the second image.""",
+                        
+            CurtainStyle.VALANCE.value: """Transform the room by installing curtains with a decorative valance at the top 
+                         using the fabric pattern from the second image."""
         }
 
-        return style_prompts.get(style, style_prompts['half_open'])  # Default to folded if style not found
+        return style_prompts.get(style, style_prompts[CurtainStyle.HALF_OPEN.value])
 
-    def get_style_reference_image(self, style: str, config) -> tuple:
-        """Return reference image path based on curtain style"""
+    def get_style_reference_image(self, style: str, config) -> bytes:
+        """Return reference image bytes based on curtain style"""
+        from .config import CurtainStyle
+        
         style_images = {
-            'folded': config.curtain_folded_image_path,
-            'half_open': config.curtain_half_open_image_path,
-            'with_sheers': config.curtain_sheers_image_path
+            CurtainStyle.CLOSED.value: config.Config.curtain_closed_image_path,
+            CurtainStyle.HALF_OPEN.value: config.Config.curtain_half_open_image_path,
+            CurtainStyle.WITH_SHEERS.value: config.Config.curtain_sheers_image_path,
+            CurtainStyle.PLEATED.value: config.Config.curtain_pleated_image_path,
+            CurtainStyle.VALANCE.value: config.Config.curtain_valance_image_path
         }
 
         image_path = style_images.get(style)
@@ -100,7 +106,7 @@ class LangChainOpenAIModel(BaseModel):
                 return f.read()
         return None
 
-    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = 'half_open') -> str:
+    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> str:
         try:
             # Convert both images to bytes for OpenAI
             from io import BytesIO
@@ -271,7 +277,7 @@ class ReplicateModel(BaseModel):
         ssl._create_default_https_context = ssl._create_unverified_context
         self.client = replicate.Client(api_token=config.replicate_api_token)
     
-    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
+    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> str:
         try:
             room_url = await self._upload_image(room_image)
             fabric_url = await self._upload_image(fabric_image)
@@ -339,18 +345,18 @@ class TestModel(BaseModel):
         super().__init__()
         logger.info("Test model initialized - no API calls will be made")
     
-    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> Image.Image:
+    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> Image.Image:
         """Generate a test visualization by combining room and fabric images"""
         try:
-            # Create a simple mock visualization
-            mock_image = self._create_mock_visualization(room_image, fabric_image)
-            logger.info("Test visualization generated successfully")
+            # Create a simple mock visualization with style consideration
+            mock_image = self._create_mock_visualization(room_image, fabric_image, curtain_style)
+            logger.info(f"Test visualization generated successfully with style: {curtain_style}")
             return mock_image
         except Exception as e:
             logger.error(f"Test model error: {str(e)}")
             raise ModelError(f"Test generation failed: {str(e)}")
     
-    def _create_mock_visualization(self, room_image: Image.Image, fabric_image: Image.Image) -> Image.Image:
+    def _create_mock_visualization(self, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> Image.Image:
         """Create curtain visualization by intelligently compositing fabric onto window areas"""
         from PIL import ImageDraw, ImageFilter
         
@@ -398,7 +404,7 @@ class DalleModel(BaseModel):
             raise ModelError("OpenAI API key required for DALL-E model")
         self.client = OpenAI(api_key=config.openai_api_key)
 
-    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
+    async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> str:
         try:
             response = self.client.images.generate(
                 model=config.dalle_model,
