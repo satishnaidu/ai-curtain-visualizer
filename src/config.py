@@ -22,8 +22,6 @@ class CurtainStyle(Enum):
     CLOSED = "closed"
     HALF_OPEN = "half_open"
     WITH_SHEERS = "with_sheers"
-    PLEATED = "pleated"
-    VALANCE = "valance"
 
 class Config(BaseSettings):
     # API Keys
@@ -65,9 +63,7 @@ class Config(BaseSettings):
     curtain_style_descriptions: dict = {
         CurtainStyle.CLOSED: "Elegant floor-length curtains hanging straight down in graceful folds",
         CurtainStyle.HALF_OPEN: "Curtains elegantly pulled to one side, creating an asymmetrical drape",
-        CurtainStyle.WITH_SHEERS: "Layered curtains with sheer inner layer for filtered light",
-        CurtainStyle.PLEATED: "Formal pleated curtains with structured folds and tailored appearance",
-        CurtainStyle.VALANCE: "Curtains with decorative valance at the top for a classic look"
+        CurtainStyle.WITH_SHEERS: "Layered curtains with sheer inner layer for filtered light"
     }
     
     @property
@@ -104,8 +100,6 @@ class Config(BaseSettings):
         curtain_closed_image_path = "assets/reference/curtain_closed.png"
         curtain_half_open_image_path = "assets/reference/curtain_half_open.png"
         curtain_sheers_image_path = "assets/reference/curtain_sheers.png"
-        curtain_pleated_image_path = "assets/reference/curtain_pleated.png"
-        curtain_valance_image_path = "assets/reference/curtain_valance.png"
 
 # Initialize config safely
 try:

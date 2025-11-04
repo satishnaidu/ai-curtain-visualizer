@@ -70,14 +70,20 @@ class LangChainOpenAIModel(BaseModel):
         from .config import CurtainStyle
         
         style_prompts = {
-            CurtainStyle.CLOSED.value: """Transform the room by replacing any existing window treatments with elegant floor-length curtains 
-                        that hang straight down in graceful folds. Use the fabric pattern from the second image.""",
+            CurtainStyle.CLOSED.value: """Transform the room by installing curtain tracks on the ceiling and hanging full-height pleated curtains 
+                        with deep, elegant folds that extend from the ceiling track to the floor. The curtains should have 
+                        consistent, evenly-spaced pleats creating a luxurious, formal appearance. Use the fabric pattern from 
+                        the second image and ensure the pleats are well-defined and uniform with style referenced in third image""",
 
-            CurtainStyle.HALF_OPEN.value: """Transform the room by replacing any existing window treatments with curtains that are 
-                           elegantly pulled to one side, creating an asymmetrical drape. Use the fabric pattern from the second image.""",
+            CurtainStyle.HALF_OPEN.value: """Transform the room by installing curtain tracks on the ceiling and creating a dramatic swept-aside 
+                           curtain arrangement. The curtains should be elegantly pulled to the sides of each window, creating 
+                           graceful sweeping folds while still extending from ceiling to floor. Use the fabric pattern from the 
+                           second image and ensure the side-swept arrangement looks natural and sophisticated with style referenced in third image""",
 
-            CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a layered curtain system with sheer white curtains 
-                             and heavier curtains using the fabric pattern from the second image.""",
+            CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a double-track curtain system on the ceiling with both sheer 
+                             and regular curtains. The sheer white curtains should be mounted closest to the window, with the 
+                             main curtains using the provided fabric pattern mounted on the outer track. Both layers should 
+                             extend from ceiling to floor, creating an elegant layered effect with style referenced in third image""",
                              
             CurtainStyle.PLEATED.value: """Transform the room by installing formal pleated curtains with structured folds 
                         using the fabric pattern from the second image.""",
