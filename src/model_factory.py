@@ -83,13 +83,7 @@ class LangChainOpenAIModel(BaseModel):
             CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a double-track curtain system on the ceiling with both sheer 
                              and regular curtains. The sheer white curtains should be mounted closest to the window, with the 
                              main curtains using the provided fabric pattern mounted on the outer track. Both layers should 
-                             extend from ceiling to floor, creating an elegant layered effect with style referenced in third image""",
-                             
-            CurtainStyle.PLEATED.value: """Transform the room by installing formal pleated curtains with structured folds 
-                        using the fabric pattern from the second image.""",
-                        
-            CurtainStyle.VALANCE.value: """Transform the room by installing curtains with a decorative valance at the top 
-                         using the fabric pattern from the second image."""
+                             extend from ceiling to floor, creating an elegant layered effect with style referenced in third image"""
         }
 
         return style_prompts.get(style, style_prompts[CurtainStyle.HALF_OPEN.value])
@@ -101,9 +95,7 @@ class LangChainOpenAIModel(BaseModel):
         style_images = {
             CurtainStyle.CLOSED.value: config.Config.curtain_closed_image_path,
             CurtainStyle.HALF_OPEN.value: config.Config.curtain_half_open_image_path,
-            CurtainStyle.WITH_SHEERS.value: config.Config.curtain_sheers_image_path,
-            CurtainStyle.PLEATED.value: config.Config.curtain_pleated_image_path,
-            CurtainStyle.VALANCE.value: config.Config.curtain_valance_image_path
+            CurtainStyle.WITH_SHEERS.value: config.Config.curtain_sheers_image_path
         }
 
         image_path = style_images.get(style)
