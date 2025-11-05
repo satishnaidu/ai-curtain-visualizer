@@ -78,11 +78,11 @@ class LangChainOpenAIModel(BaseModel):
                         as one unified treatment across the entire wall.""",
 
             CurtainStyle.HALF_OPEN.value: """Transform the room by installing one continuous curtain track spanning the entire wall width above all windows. 
-                           Install a single, wide curtain panel that covers the full wall width. The curtain fabric should feature 
-                           the SMALL REPEATING PATTERN from the second image, tiled seamlessly across the entire curtain surface - 
+                           Install curtains that are parted in the middle, with panels elegantly gathered and pulled to both left and right sides. 
+                           The curtain fabric should feature the SMALL REPEATING PATTERN from the second image, tiled seamlessly across the entire curtain surface - 
                            the pattern should repeat many times in a regular grid, maintaining the original small scale of the pattern elements. 
-                           The curtain should be elegantly gathered and pulled to one side, creating an asymmetrical drape. 
-                           This should be ONE continuous curtain, not separate curtains for each window.""",
+                           The curtains should create a symmetrical opening in the center, allowing natural light through the middle while framing the windows with fabric on both sides. 
+                           This should be ONE continuous curtain treatment with panels drawn to both sides, not separate curtains for each window.""",
 
             CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a double-track curtain system with sheer white curtains 
                              closest to the window and main curtains on the outer track. The main curtains should feature 

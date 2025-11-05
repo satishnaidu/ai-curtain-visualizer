@@ -377,23 +377,17 @@ class CurtainVisualizerApp:
             
             with col1:
                 st.subheader("🏠 Room Photo")
-                if os.path.exists(entry.get("room_photo_path", "")):
-                    st.image(entry["room_photo_path"], caption="Original Room", width='stretch')
-                else:
-                    st.error("Room photo not found")
+                st.image(entry.get("display_room"), caption="Original Room", width='stretch')
             
             with col2:
                 st.subheader("🧵 Fabric Pattern")
-                if os.path.exists(entry.get("fabric_photo_path", "")):
-                    st.image(entry["fabric_photo_path"], caption="Fabric Choice", width='stretch')
-                else:
-                    st.error("Fabric photo not found")
+                st.image(entry.get("display_fabric"), caption="Fabric Choice", width='stretch')
             
             with col3:
                 st.subheader("✨ AI Result")
+                st.image(entry.get("display_result"), caption="Generated Visualization", width='stretch')
+                # Add download button if local file exists
                 if os.path.exists(entry.get("result_path", "")):
-                    st.image(entry["result_path"], caption="Generated Visualization", width='stretch')
-                    # Add download button for the generated image
                     with open(entry["result_path"], "rb") as file:
                         st.download_button(
                             label="📥 Download",
@@ -403,8 +397,8 @@ class CurtainVisualizerApp:
                             key=f"download_{i}",
                             width='stretch'
                         )
-                else:
-                    st.error("Result image not found")
+                elif entry.get("result_url"):
+                    st.markdown(f"[📥 Download]({entry['result_url']})", unsafe_allow_html=True)
             
             # Show metadata below the images
             col_meta1, col_meta2, col_meta3 = st.columns(3)

@@ -30,6 +30,12 @@ class Config(BaseSettings):
     stripe_secret_key: Optional[str] = Field(None, env="STRIPE_SECRET_KEY")
     stripe_publishable_key: Optional[str] = Field(None, env="STRIPE_PUBLISHABLE_KEY")
     
+    # AWS S3 Configuration
+    aws_access_key_id: Optional[str] = Field(None, env="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
+    aws_s3_bucket: Optional[str] = Field(None, env="AWS_S3_BUCKET")
+    aws_s3_region: str = Field("us-east-1", env="AWS_S3_REGION")
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Try to get API key from Streamlit secrets only in cloud environment
@@ -45,6 +51,14 @@ class Config(BaseSettings):
                     self.stripe_publishable_key = st.secrets['STRIPE_PUBLISHABLE_KEY']
                 if 'TEST_MODE' in st.secrets:
                     self.test_mode = st.secrets['TEST_MODE']
+                if 'AWS_ACCESS_KEY_ID' in st.secrets:
+                    self.aws_access_key_id = st.secrets['AWS_ACCESS_KEY_ID']
+                if 'AWS_SECRET_ACCESS_KEY' in st.secrets:
+                    self.aws_secret_access_key = st.secrets['AWS_SECRET_ACCESS_KEY']
+                if 'AWS_S3_BUCKET' in st.secrets:
+                    self.aws_s3_bucket = st.secrets['AWS_S3_BUCKET']
+                if 'AWS_S3_REGION' in st.secrets:
+                    self.aws_s3_region = st.secrets['AWS_S3_REGION']
             except:
                 pass  # Ignore secrets errors in local development
     
@@ -59,7 +73,7 @@ class Config(BaseSettings):
     model_type: ModelType = ModelType.TEST_MODE  # Better composite approach
     
     # Curtain Style Configuration
-    default_curtain_style: CurtainStyle = CurtainStyle.HALF_OPEN
+    default_curtain_style: CurtainStyle = CurtainStyle.CLOSED
     curtain_style_descriptions: dict = {
         CurtainStyle.CLOSED: "Elegant floor-length curtains hanging straight down in graceful folds",
         CurtainStyle.HALF_OPEN: "Curtains elegantly pulled to one side, creating an asymmetrical drape",
