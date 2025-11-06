@@ -6,6 +6,7 @@ from loguru import logger
 from src.image_processor import ImageProcessor
 from src.exceptions import ImageProcessingError, ImageValidationError, APIError, ModelError
 from src.config import config, ModelType, CurtainStyle
+from loguru import logger
 from src.logging_config import setup_logging
 from src.user_manager import UserManager
 from src.payment_simulator import PaymentSimulator
@@ -27,7 +28,7 @@ class CurtainVisualizerApp:
         self.payment_simulator = PaymentSimulator()
         self.gallery_manager = GalleryManager()
         self.setup_page()
-        logger.info("CurtainVisualizerApp initialized")
+        logger.info(f"CurtainVisualizerApp initialized - S3 Bucket: {config.aws_s3_bucket}, S3 Client: {bool(self.gallery_manager.s3_client)}")
 
     def setup_page(self):
         """Initialize Streamlit page configuration"""
@@ -55,6 +56,12 @@ class CurtainVisualizerApp:
             st.divider()
             st.header("About")
             st.write("Advanced AI-powered curtain visualization using LangChain and production-grade ML frameworks.")
+            
+            # S3 Status
+            if config.aws_s3_bucket:
+                st.success(f"✅ S3: {config.aws_s3_bucket}")
+            else:
+                st.warning("⚠️ S3: Not configured")
 
         st.write("Upload a room photo and fabric pattern to generate a professional curtain visualization.")
         

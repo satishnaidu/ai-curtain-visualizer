@@ -19,35 +19,60 @@ class GalleryManager:
     
     def _init_s3_client(self) -> Optional[boto3.client]:
         """Initialize S3 client if credentials are available"""
-        if config.aws_access_key_id and config.aws_secret_access_key and config.aws_s3_bucket:
-            try:
-                return boto3.client(
-                    's3',
-                    aws_access_key_id=config.aws_access_key_id,
-                    aws_secret_access_key=config.aws_secret_access_key,
-                    region_name=config.aws_s3_region
-                )
-            except Exception as e:
-                logger.error(f"Failed to initialize S3 client: {e}")
-        return None
+        if not config.aws_access_key_id or not config.aws_secret_access_key or not config.aws_s3_bucket:
+            logger.warning(f"S3 not configured - missing credentials or bucket. Key: {bool(config.aws_access_key_id)}, Secret: {bool(config.aws_secret_access_key)}, Bucket: {config.aws_s3_bucket}")
+            return None
+        
+        try:
+            client = boto3.client(
+                's3',
+                aws_access_key_id=config.aws_access_key_id,
+                aws_secret_access_key=config.aws_secret_access_key,
+                region_name=config.aws_s3_region
+            )
+            logger.info(f"S3 client initialized successfully for bucket: {config.aws_s3_bucket}")
+            return client
+        except Exception as e:
+            logger.error(f"Failed to initialize S3 client: {e}")
+            return None
     
     def _upload_to_s3(self, local_path: str, s3_key: str) -> Optional[str]:
         """Upload file to S3 and return public URL"""
         if not self.s3_client:
+            logger.warning(f"S3 client not available, skipping upload for {s3_key}")
             return None
         
         try:
-            self.s3_client.upload_file(
-                local_path,
-                config.aws_s3_bucket,
-                s3_key,
-                ExtraArgs={'ACL': 'public-read', 'ContentType': self._get_content_type(local_path)}
-            )
+            logger.info(f"Uploading {local_path} to s3://{config.aws_s3_bucket}/{s3_key}")
+            # Try with ACL first, fallback without ACL if blocked
+            try:
+                self.s3_client.upload_file(
+                    local_path,
+                    config.aws_s3_bucket,
+                    s3_key,
+                    ExtraArgs={'ACL': 'public-read', 'ContentType': self._get_content_type(local_path)}
+                )
+            except ClientError as acl_error:
+                if 'AccessControlListNotSupported' in str(acl_error):
+                    logger.warning("ACL not supported, uploading without ACL")
+                    self.s3_client.upload_file(
+                        local_path,
+                        config.aws_s3_bucket,
+                        s3_key,
+                        ExtraArgs={'ContentType': self._get_content_type(local_path)}
+                    )
+                else:
+                    raise
             url = f"https://{config.aws_s3_bucket}.s3.{config.aws_s3_region}.amazonaws.com/{s3_key}"
-            logger.info(f"Uploaded to S3: {url}")
+            logger.info(f"Successfully uploaded to S3: {url}")
             return url
         except ClientError as e:
-            logger.error(f"S3 upload failed: {e}")
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            error_msg = e.response.get('Error', {}).get('Message', str(e))
+            logger.error(f"S3 upload failed for {s3_key}: {error_code} - {error_msg}")
+            return None
+        except Exception as e:
+            logger.error(f"S3 upload failed for {s3_key}: {str(e)}")
             return None
     
     def _get_content_type(self, file_path: str) -> str:
@@ -101,9 +126,13 @@ class GalleryManager:
             # Upload to S3 if configured
             s3_urls = {}
             if self.s3_client:
+                logger.info("Uploading gallery images to S3...")
                 s3_urls['room_url'] = self._upload_to_s3(str(room_gallery_path), f"gallery/{base_name}_room.jpg")
                 s3_urls['fabric_url'] = self._upload_to_s3(str(fabric_gallery_path), f"gallery/{base_name}_fabric.jpg")
                 s3_urls['result_url'] = self._upload_to_s3(str(result_gallery_path), f"gallery/{base_name}_result.png")
+                logger.info(f"S3 upload complete. URLs: {list(s3_urls.keys())}")
+            else:
+                logger.warning("S3 client not initialized, skipping S3 upload")
             
             entry = {
                 "room_photo_path": str(room_gallery_path),
