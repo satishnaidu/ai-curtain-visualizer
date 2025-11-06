@@ -70,18 +70,13 @@ class StripePaymentProcessor:
                         'quantity': 1,
                     }],
                     mode='payment',
-                    success_url=f'https://ai-curtain-visualizer.streamlit.app/?session_id={{CHECKOUT_SESSION_ID}}&phone={phone.replace("+", "%2B")}',
-                    cancel_url='https://ai-curtain-visualizer.streamlit.app/cancel',
+                    success_url=f'https://curtainvision.streamlit.app/?session_id={{CHECKOUT_SESSION_ID}}&phone={phone.replace("+", "%2B")}',
+                    cancel_url='https://curtainvision.streamlit.app/cancel',
                     metadata={
                         'phone': phone,
                         'credits': package_info['credits']
                     }
                 )
-                
-                # Display checkout URL
-                st.success("🔗 Secure checkout created!")
-                st.markdown(f"**[Click here to complete payment securely with Stripe]({checkout_session.url})**")
-                st.info("💳 You will be redirected to Stripe's secure payment page")
                 
                 # Store session info for verification
                 st.session_state.checkout_session_id = checkout_session.id
@@ -90,10 +85,40 @@ class StripePaymentProcessor:
                 
                 logger.info(f"Stripe checkout created for {phone}: {package_info['credits']} credits, Session ID: {checkout_session.id}")
                 
+                # Attractive payment button with custom styling
+                st.markdown("---")
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            padding: 30px; border-radius: 15px; text-align: center; 
+                            box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px 0;">
+                    <h2 style="color: white; margin-bottom: 15px;">🔒 Secure Checkout Ready</h2>
+                    <p style="color: #f0f0f0; font-size: 18px; margin-bottom: 25px;">
+                        Your payment will be processed securely through Stripe<br/>
+                        <small>🛡️ Bank-level encryption • No card details stored</small>
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Large prominent button
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    st.link_button(
+                        f"💳 Complete Payment - ${package_info['price']/100:.2f}",
+                        checkout_session.url,
+                        type="primary",
+                        use_container_width=True
+                    )
+                
+                st.markdown("""
+                <div style="text-align: center; margin-top: 15px; color: #666;">
+                    <small>✓ Instant credit activation • ✓ Secure payment • ✓ Money-back guarantee</small>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 # For demo purposes, show manual verification option
                 st.divider()
-                st.write("**For Demo: Manual Payment Verification**")
-                if st.button("✅ Mark Payment as Completed (Demo)"):
+                st.caption("**For Demo: Manual Payment Verification**")
+                if st.button("✅ Mark Payment as Completed (Demo)", type="secondary"):
                     st.success(f"✅ Payment verified! {package_info['credits']} credits added to your account.")
                     st.balloons()
                     return True
