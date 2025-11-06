@@ -28,7 +28,9 @@ class CurtainVisualizerApp:
         self.payment_simulator = PaymentSimulator()
         self.gallery_manager = GalleryManager()
         self.setup_page()
-        logger.info(f"CurtainVisualizerApp initialized - S3 Bucket: {config.aws_s3_bucket}, S3 Client: {bool(self.gallery_manager.s3_client)}")
+        logger.info(f"CurtainVisualizerApp initialized")
+        if config.aws_s3_bucket:
+            logger.info(f"S3 configured: {config.aws_s3_bucket}")
 
     def setup_page(self):
         """Initialize Streamlit page configuration"""
@@ -56,12 +58,6 @@ class CurtainVisualizerApp:
             st.divider()
             st.header("About")
             st.write("Advanced AI-powered curtain visualization using LangChain and production-grade ML frameworks.")
-            
-            # S3 Status
-            if config.aws_s3_bucket:
-                st.success(f"✅ S3: {config.aws_s3_bucket}")
-            else:
-                st.warning("⚠️ S3: Not configured")
 
         st.write("Upload a room photo and fabric pattern to generate a professional curtain visualization.")
         

@@ -16,6 +16,7 @@ class GalleryManager:
         self.gallery_dir.mkdir(exist_ok=True)
         self.gallery_data = self._load_gallery()
         self.s3_client = self._init_s3_client()
+        self._sync_from_s3()
     
     def _init_s3_client(self) -> Optional[boto3.client]:
         """Initialize S3 client if credentials are available"""
@@ -44,25 +45,13 @@ class GalleryManager:
         
         try:
             logger.info(f"Uploading {local_path} to s3://{config.aws_s3_bucket}/{s3_key}")
-            # Try with ACL first, fallback without ACL if blocked
-            try:
-                self.s3_client.upload_file(
-                    local_path,
-                    config.aws_s3_bucket,
-                    s3_key,
-                    ExtraArgs={'ACL': 'public-read', 'ContentType': self._get_content_type(local_path)}
-                )
-            except ClientError as acl_error:
-                if 'AccessControlListNotSupported' in str(acl_error):
-                    logger.warning("ACL not supported, uploading without ACL")
-                    self.s3_client.upload_file(
-                        local_path,
-                        config.aws_s3_bucket,
-                        s3_key,
-                        ExtraArgs={'ContentType': self._get_content_type(local_path)}
-                    )
-                else:
-                    raise
+            # Upload without ACL (bucket has ACLs disabled)
+            self.s3_client.upload_file(
+                local_path,
+                config.aws_s3_bucket,
+                s3_key,
+                ExtraArgs={'ContentType': self._get_content_type(local_path)}
+            )
             url = f"https://{config.aws_s3_bucket}.s3.{config.aws_s3_region}.amazonaws.com/{s3_key}"
             logger.info(f"Successfully uploaded to S3: {url}")
             return url
@@ -79,6 +68,36 @@ class GalleryManager:
         """Get content type based on file extension"""
         ext = Path(file_path).suffix.lower()
         return 'image/jpeg' if ext in ['.jpg', '.jpeg'] else 'image/png'
+    
+    def _download_from_s3(self, s3_url: str, local_path: str) -> bool:
+        """Download file from S3 to local path"""
+        if not self.s3_client or not s3_url:
+            return False
+        
+        try:
+            s3_key = s3_url.split(f"{config.aws_s3_bucket}.s3.{config.aws_s3_region}.amazonaws.com/")[-1]
+            logger.info(f"Downloading {s3_key} to {local_path}")
+            self.s3_client.download_file(config.aws_s3_bucket, s3_key, local_path)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to download {s3_url}: {e}")
+            return False
+    
+    def _sync_from_s3(self):
+        """Sync missing local files from S3 on startup"""
+        if not self.s3_client:
+            return
+        
+        logger.info("Syncing gallery images from S3...")
+        for entry in self.gallery_data:
+            # Download missing local files from S3
+            if entry.get('room_url') and not os.path.exists(entry.get('room_photo_path', '')):
+                self._download_from_s3(entry['room_url'], entry['room_photo_path'])
+            if entry.get('fabric_url') and not os.path.exists(entry.get('fabric_photo_path', '')):
+                self._download_from_s3(entry['fabric_url'], entry['fabric_photo_path'])
+            if entry.get('result_url') and not os.path.exists(entry.get('result_path', '')):
+                self._download_from_s3(entry['result_url'], entry['result_path'])
+        logger.info("S3 sync complete")
     
     def _load_gallery(self) -> List[Dict]:
         """Load gallery data from JSON file"""
@@ -161,25 +180,17 @@ class GalleryManager:
             logger.error(f"Error adding to gallery: {e}")
     
     def get_gallery_entries(self) -> List[Dict]:
-        """Get all gallery entries, prioritizing S3 URLs"""
+        """Get all gallery entries using local files"""
         valid_entries = []
         for entry in self.gallery_data:
-            # Check if S3 URLs exist, otherwise check local files
-            has_s3 = entry.get('room_url') and entry.get('fabric_url') and entry.get('result_url')
             has_local = (os.path.exists(entry.get("room_photo_path", "")) and 
                         os.path.exists(entry.get("fabric_photo_path", "")) and 
                         os.path.exists(entry.get("result_path", "")))
             
-            if has_s3 or has_local:
-                # Prioritize S3 URLs if available
-                if has_s3:
-                    entry['display_room'] = entry['room_url']
-                    entry['display_fabric'] = entry['fabric_url']
-                    entry['display_result'] = entry['result_url']
-                else:
-                    entry['display_room'] = entry['room_photo_path']
-                    entry['display_fabric'] = entry['fabric_photo_path']
-                    entry['display_result'] = entry['result_path']
+            if has_local:
+                entry['display_room'] = entry['room_photo_path']
+                entry['display_fabric'] = entry['fabric_photo_path']
+                entry['display_result'] = entry['result_path']
                 valid_entries.append(entry)
         
         if len(valid_entries) != len(self.gallery_data):

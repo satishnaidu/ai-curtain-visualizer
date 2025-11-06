@@ -4,6 +4,7 @@ from PIL import Image
 import requests
 from io import BytesIO
 import base64
+import ssl
 from loguru import logger
 from .exceptions import ModelError
 
@@ -11,7 +12,15 @@ class ReplicateModel:
     """Replicate API model for better image-to-image transformations"""
     
     def __init__(self, api_token: str):
+        # Disable SSL verification for corporate proxy
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
         self.client = replicate.Client(api_token=api_token)
+        
+        # Configure requests session to bypass SSL verification
+        if hasattr(self.client, '_session'):
+            self.client._session.verify = False
         
     async def generate_with_controlnet(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
         """Use ControlNet for structure-preserving transformations"""
