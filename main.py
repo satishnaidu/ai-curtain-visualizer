@@ -23,7 +23,7 @@ setup_logging()
 
 class CurtainVisualizerApp:
     def __init__(self):
-        self.image_processor = ImageProcessor()
+        self.image_processor = None
         self.user_manager = UserManager()
         self.payment_simulator = PaymentSimulator()
         self.gallery_manager = GalleryManager()
@@ -31,6 +31,12 @@ class CurtainVisualizerApp:
         logger.info(f"CurtainVisualizerApp initialized")
         if config.aws_s3_bucket:
             logger.info(f"S3 configured: {config.aws_s3_bucket}")
+    
+    def _get_image_processor(self):
+        """Lazy initialization of image processor"""
+        if self.image_processor is None:
+            self.image_processor = ImageProcessor()
+        return self.image_processor
 
     def setup_page(self):
         """Initialize Streamlit page configuration"""
@@ -46,14 +52,57 @@ class CurtainVisualizerApp:
             st.header("Configuration")
             if config.test_mode:
                 st.success("🧪 **TEST MODE** - No API calls")
-            st.write(f"**Model:** {config.effective_model_type.value}")
+            
+            # Model selection dropdown with availability check
+            has_openai = bool(config.openai_api_key and config.openai_api_key != "your_api_key_here" and len(config.openai_api_key) > 20)
+            has_replicate = bool(config.replicate_api_token and len(config.replicate_api_token) > 10)
+            
+            available_models = []
+            if has_openai:
+                available_models.extend([
+                    (ModelType.REALISTIC_FOLD, "Realistic Fold (OpenAI)"),
+                    (ModelType.LANGCHAIN_OPENAI, "LangChain + OpenAI"),
+                    (ModelType.DALLE, "DALL-E 3")
+                ])
+            if has_replicate:
+                available_models.extend([
+                    (ModelType.REPLICATE_CONTROLNET, "Replicate ControlNet"),
+                    (ModelType.REPLICATE_REALISTIC, "Replicate Realistic Vision")
+                ])
+            available_models.append((ModelType.TEST_MODE, "Test Mode (No API)"))
+            
+            model_names = [name for _, name in available_models]
+            model_types = [model for model, _ in available_models]
+            
+            # Get current model index
+            try:
+                current_index = model_types.index(config.effective_model_type)
+            except ValueError:
+                current_index = 0
+            
+            selected_model_name = st.selectbox(
+                "AI Model",
+                options=model_names,
+                index=current_index,
+                help="Choose the AI model for curtain generation"
+            )
+            
+            # Update config with selected model
+            selected_model_type = model_types[model_names.index(selected_model_name)]
+            if selected_model_type != config.effective_model_type:
+                config.model_type = selected_model_type.value
+                self.image_processor = None  # Reset processor
+                st.cache_resource.clear()
+                st.rerun()
+            
             st.write(f"**Auto-Optimization:** Images resized to max {config.max_image_dimension}px")
             st.write(f"**Supported Formats:** {', '.join(config.allowed_image_types)}")
             
-            # Model selection (if multiple models available)
-            if st.button("🔄 Reload Model"):
-                st.cache_resource.clear()
-                st.rerun()
+            # Show API status
+            if has_openai:
+                st.caption("✅ OpenAI API configured")
+            if has_replicate:
+                st.caption("✅ Replicate API configured")
             
             st.divider()
             st.header("About")
@@ -299,8 +348,11 @@ class CurtainVisualizerApp:
         progress_bar.progress(40)
         status_text.text("Analyzing images...")
         
+        # Get or initialize image processor
+        processor = self._get_image_processor()
+        
         # Process images with user phone and curtain style
-        result, saved_path = await self.image_processor.process_images(room_photo, fabric_photo, user_phone, curtain_style)
+        result, saved_path = await processor.process_images(room_photo, fabric_photo, user_phone, curtain_style)
         
         progress_bar.progress(80)
         status_text.text("Saving image...")
