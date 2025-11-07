@@ -109,6 +109,7 @@ class LangChainOpenAIModel(BaseModel):
             from io import BytesIO
             import requests
             import time
+            import hashlib
             
             # Convert images to PNG bytes
             room_bytes = BytesIO()
@@ -122,9 +123,17 @@ class LangChainOpenAIModel(BaseModel):
             # Extract detailed fabric description
             fabric_desc = self._extract_fabric_colors(fabric_image)
             
-            # Get style-specific prompt with fabric details
+            # Generate unique hash from fabric image to force fresh generation
+            fabric_hash = hashlib.md5(fabric_bytes.getvalue()).hexdigest()[:8]
+            timestamp = int(time.time())
+            
+            # Get style-specific prompt with fabric details and unique identifiers
             style_prompt = self.get_curtain_style_prompt(curtain_style)
-            enhanced_prompt = f"{style_prompt} Use the exact fabric pattern, texture, and colors from the second image: {fabric_desc}. The curtain fabric must precisely match the pattern shown in the fabric image."
+            enhanced_prompt = f"{style_prompt} FABRIC_ID:{fabric_hash} TIMESTAMP:{timestamp} "
+            
+            # Reset BytesIO positions after hashing
+            room_bytes.seek(0)
+            fabric_bytes.seek(0)
             
             # Prepare multipart form data with image[] array format
             files = [
@@ -134,7 +143,7 @@ class LangChainOpenAIModel(BaseModel):
             
             data = {
                 'model': 'gpt-image-1',
-                'prompt': style_prompt,
+                'prompt': enhanced_prompt,
                 'n': 1,
                 'size': '1024x1024',
                 'input_fidelity': 'high'
