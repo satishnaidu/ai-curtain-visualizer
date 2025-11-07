@@ -60,8 +60,8 @@ class CurtainVisualizerApp:
             available_models = []
             if has_openai:
                 available_models.extend([
-                    (ModelType.REALISTIC_FOLD, "Realistic Fold (OpenAI)"),
                     (ModelType.LANGCHAIN_OPENAI, "LangChain + OpenAI"),
+                    (ModelType.REALISTIC_FOLD, "Realistic Fold (OpenAI)"),
                     (ModelType.DALLE, "DALL-E 3")
                 ])
             if has_replicate:

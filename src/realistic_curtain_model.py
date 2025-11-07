@@ -341,11 +341,8 @@ class RealisticCurtainModel:
         mask_bytes.seek(0)
         mask_bytes.name = 'mask.png'
         
-        # Call OpenAI
-        refine_prompt = (
-            f"{prompt} Refine the curtain area to be photo-realistic with natural lighting, "
-            "soft shadows, and fabric highlights. Keep the fold texture and room unchanged."
-        )
+        # Call OpenAI with shortened prompt
+        refine_prompt = f"Refine curtain area: photo-realistic lighting, soft shadows, fabric highlights. Keep fold texture and room unchanged."[:1000]
         
         response = await asyncio.to_thread(
             self.client.images.edit,

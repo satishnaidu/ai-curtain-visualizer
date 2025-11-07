@@ -113,7 +113,7 @@ class Config(BaseSettings):
                            self.openai_api_key.startswith('sk-'))
         
         if has_valid_openai:
-            return ModelType.REALISTIC_FOLD
+            return ModelType.LANGCHAIN_OPENAI
         elif self.replicate_api_token:
             return ModelType.REPLICATE_CONTROLNET
         else:
