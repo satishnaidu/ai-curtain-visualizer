@@ -119,10 +119,7 @@ class LangChainOpenAIModel(BaseModel):
             fabric_bytes = BytesIO()
             fabric_image.save(fabric_bytes, format='PNG')
             fabric_bytes.seek(0)
-            
-            # Extract detailed fabric description
-            fabric_desc = self._extract_fabric_colors(fabric_image)
-            
+      
             # Generate unique hash from fabric image to force fresh generation
             fabric_hash = hashlib.md5(fabric_bytes.getvalue()).hexdigest()[:8]
             timestamp = int(time.time())
@@ -145,8 +142,7 @@ class LangChainOpenAIModel(BaseModel):
                 'model': 'gpt-image-1',
                 'prompt': enhanced_prompt,
                 'n': 1,
-                'size': '1024x1024',
-                'input_fidelity': 'high'
+                'size': '1024x1024'
             }
             
             headers = {
