@@ -324,10 +324,11 @@ class RealisticCurtainModel:
         """Refine composite with OpenAI image edit"""
         import asyncio
         
-        # Save to bytes
+        # Save to bytes with proper naming
         img_bytes = BytesIO()
         composite_img.save(img_bytes, format='PNG')
         img_bytes.seek(0)
+        img_bytes.name = 'image.png'
         
         # Use detected window mask for OpenAI
         mask_img = Image.fromarray(window_mask)
@@ -338,6 +339,7 @@ class RealisticCurtainModel:
         mask_bytes = BytesIO()
         mask_img.save(mask_bytes, format='PNG')
         mask_bytes.seek(0)
+        mask_bytes.name = 'mask.png'
         
         # Call OpenAI
         refine_prompt = (

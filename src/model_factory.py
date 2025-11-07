@@ -157,8 +157,13 @@ class LangChainOpenAIModel(BaseModel):
                 result = response.json()
                 logger.info(f"API Response: {result}")
                 if 'data' in result and len(result['data']) > 0:
-                    return result['data'][0]['url']
-                raise ModelError("No image URL in response")
+                    if 'url' in result['data'][0]:
+                        return result['data'][0]['url']
+                    elif 'b64_json' in result['data'][0]:
+                        # Return base64 as data URL
+                        b64_data = result['data'][0]['b64_json']
+                        return f"data:image/png;base64,{b64_data}"
+                return str(result)
             else:
                 logger.error(f"API error {response.status_code}: {response.text}")
                 raise ModelError(f"API error {response.status_code}: {response.text}")
