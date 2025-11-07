@@ -3,6 +3,12 @@ from enum import Enum
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Optional
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load .env file explicitly from project root
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 try:
     import streamlit as st
@@ -16,6 +22,7 @@ class ModelType(Enum):
     LANGCHAIN_OPENAI = "langchain_openai"
     REPLICATE_CONTROLNET = "replicate_controlnet"
     REPLICATE_REALISTIC = "replicate_realistic"
+    REALISTIC_FOLD = "realistic_fold"
     TEST_MODE = "test_mode"
 
 class CurtainStyle(Enum):
@@ -38,6 +45,13 @@ class Config(BaseSettings):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        
+        # Override with environment variables if .env was loaded
+        if os.getenv('OPENAI_API_KEY'):
+            self.openai_api_key = os.getenv('OPENAI_API_KEY')
+        if os.getenv('MODEL_TYPE'):
+            self.model_type = os.getenv('MODEL_TYPE')
+        
         # Try to get API key from Streamlit secrets only in cloud environment
         if _has_streamlit:
             try:
@@ -70,7 +84,7 @@ class Config(BaseSettings):
     max_image_dimension: int = 1024  # Max width/height for optimization
     
     # Model Configuration  
-    model_type: ModelType = ModelType.TEST_MODE  # Better composite approach
+    model_type: Optional[str] = Field(None, env="MODEL_TYPE")
     
     # Curtain Style Configuration
     default_curtain_style: CurtainStyle = CurtainStyle.CLOSED
@@ -83,12 +97,23 @@ class Config(BaseSettings):
     @property
     def effective_model_type(self) -> ModelType:
         """Get the effective model type with fallback priority"""
+        # If MODEL_TYPE is explicitly set in env, use it
+        if self.model_type:
+            try:
+                return ModelType(self.model_type)
+            except ValueError:
+                pass
+        
         if self.test_mode:
             return ModelType.TEST_MODE
         
-        # Priority: OpenAI -> Replicate -> Test
-        if self.openai_api_key and self.openai_api_key != "your_api_key_here":
-            return ModelType.LANGCHAIN_OPENAI
+        # Priority: Realistic Fold (OpenAI) -> Replicate -> Test
+        has_valid_openai = (self.openai_api_key and 
+                           self.openai_api_key != "your_api_key_here" and 
+                           self.openai_api_key.startswith('sk-'))
+        
+        if has_valid_openai:
+            return ModelType.REALISTIC_FOLD
         elif self.replicate_api_token:
             return ModelType.REPLICATE_CONTROLNET
         else:
@@ -107,22 +132,17 @@ class Config(BaseSettings):
     request_timeout: int = 30
     log_level: str = "INFO"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        # Reference images for different curtain styles
-        curtain_closed_image_path = "assets/reference/curtain_closed.png"
-        curtain_half_open_image_path = "assets/reference/curtain_half_open.png"
-        curtain_sheers_image_path = "assets/reference/curtain_sheers.png"
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+        "extra": "ignore"
+    }
+    
+    # Reference images for different curtain styles
+    curtain_closed_image_path: str = "assets/reference/curtain_closed.png"
+    curtain_half_open_image_path: str = "assets/reference/curtain_half_open.png"
+    curtain_sheers_image_path: str = "assets/reference/curtain_sheers.png"
 
-# Initialize config safely
-try:
-    config = Config()
-except Exception as e:
-    # Fallback config for development
-    import os
-    config = Config(
-        openai_api_key=os.getenv('OPENAI_API_KEY', 'your_api_key_here'),
-        replicate_api_token=os.getenv('REPLICATE_API_TOKEN'),
-        test_mode=os.getenv('TEST_MODE', 'false').lower() == 'true'
-    )
+# Initialize config
+config = Config()
