@@ -70,25 +70,20 @@ class LangChainOpenAIModel(BaseModel):
         from .config import CurtainStyle
         
         style_prompts = {
-            CurtainStyle.CLOSED.value: """Transform the room by installing one continuous curtain track spanning the entire wall width above all windows. 
-                        Install curtains that hang straight down in graceful folds, covering all windows completely. 
-                        The curtain fabric should feature the SMALL REPEATING PATTERN from the second image, tiled seamlessly 
-                        across the entire curtain surface - the pattern should repeat many times in a regular grid, 
-                        maintaining the original small scale of the pattern elements. The curtains should extend from ceiling to floor 
-                        as one unified treatment across the entire wall.""",
+            CurtainStyle.CLOSED.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, hanging straight down in graceful folds, covering all windows completely. 
+                        CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                        Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
+                        Curtains must extend from ceiling to floor with no gap at the top.""",
 
-            CurtainStyle.HALF_OPEN.value: """Transform the room by installing one continuous curtain track spanning the entire wall width above all windows. 
-                           Install curtains that are parted in the middle, with panels elegantly gathered and pulled to both left and right sides. 
-                           The curtain fabric should feature the SMALL REPEATING PATTERN from the second image, tiled seamlessly across the entire curtain surface - 
-                           the pattern should repeat many times in a regular grid, maintaining the original small scale of the pattern elements. 
-                           The curtains should create a symmetrical opening in the center, allowing natural light through the middle while framing the windows with fabric on both sides. 
-                           This should be ONE continuous curtain treatment with panels drawn to both sides, not separate curtains for each window.""",
+            CurtainStyle.HALF_OPEN.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, parted in the middle with panels gathered to both sides. 
+                           CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                           Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
+                           Curtains must extend from ceiling to floor with no gap at the top, creating a symmetrical opening in the center.""",
 
-            CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a double-track curtain system with sheer white curtains 
-                             closest to the window and main curtains on the outer track. The main curtains should feature 
-                             the SMALL REPEATING PATTERN from the second image, tiled seamlessly across the curtain surface - 
-                             the pattern should repeat many times in a regular grid, maintaining the original small scale. 
-                             Both layers should extend from ceiling to floor."""
+            CurtainStyle.WITH_SHEERS.value: """Transform the first image (room) by installing a double-layer curtain system mounted at the ceiling line with sheer white curtains closest to the window and main curtains on the outer track. 
+                             CRITICAL: The main curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                             Tile the fabric pattern seamlessly across the curtain surface, maintaining the original scale and details. 
+                             Both layers must extend from ceiling to floor with no gap at the top."""
         }
 
         return style_prompts.get(style, style_prompts[CurtainStyle.HALF_OPEN.value])
@@ -111,10 +106,12 @@ class LangChainOpenAIModel(BaseModel):
 
     async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> str:
         try:
-            # Convert both images to bytes for OpenAI
             from io import BytesIO
             import requests
+            import time
+            import hashlib
             
+            # Convert images to PNG bytes
             room_bytes = BytesIO()
             room_image.save(room_bytes, format='PNG')
             room_bytes.seek(0)
@@ -122,34 +119,38 @@ class LangChainOpenAIModel(BaseModel):
             fabric_bytes = BytesIO()
             fabric_image.save(fabric_bytes, format='PNG')
             fabric_bytes.seek(0)
+      
+            # Generate unique hash from fabric image to force fresh generation
+            fabric_hash = hashlib.md5(fabric_bytes.getvalue()).hexdigest()[:8]
+            timestamp = int(time.time())
             
-            # Use OpenAI image edit API with multiple images
+            # Get style-specific prompt with fabric details and unique identifiers
+            style_prompt = self.get_curtain_style_prompt(curtain_style)
+            enhanced_prompt = f"{style_prompt} FABRIC_ID:{fabric_hash} TIMESTAMP:{timestamp} "
+            
+            # Reset BytesIO positions after hashing
+            room_bytes.seek(0)
+            fabric_bytes.seek(0)
+            
+            # Prepare multipart form data with image[] array format
             files = [
                 ('image[]', ('room.png', room_bytes, 'image/png')),
                 ('image[]', ('fabric.png', fabric_bytes, 'image/png'))
             ]
-            # Add style reference image if available
-            style_bytes = self.get_style_reference_image(curtain_style, config)
-             # if style_bytes:
-                 # files.append(
-                    #  ('image[]', (f'style_{curtain_style}.png', style_bytes, 'image/png'))
-                 # )
-
-            # Get appropriate prompt for the selected style
-            style_prompt = self.get_curtain_style_prompt(curtain_style)
-
+            
             data = {
                 'model': 'gpt-image-1',
-                'prompt': style_prompt,
+                'prompt': enhanced_prompt,
                 'n': 1,
                 'size': '1024x1024'
             }
-
+            
             headers = {
                 'Authorization': f'Bearer {config.openai_api_key}'
             }
             
-            response = requests.post(
+            response = await asyncio.to_thread(
+                requests.post,
                 'https://api.openai.com/v1/images/edits',
                 files=files,
                 data=data,
@@ -168,12 +169,11 @@ class LangChainOpenAIModel(BaseModel):
                         return f"data:image/png;base64,{b64_data}"
                 return str(result)
             else:
-                raise Exception(f"API error: {response.text}")
+                logger.error(f"API error {response.status_code}: {response.text}")
+                raise ModelError(f"API error {response.status_code}: {response.text}")
             
         except Exception as e:
             logger.error(f"OpenAI image edit error: {str(e)}")
-            if "'url'" in str(e):
-                raise ModelError(f"Response format error - check API response structure")
             raise ModelError(f"Failed to edit image: {str(e)}")
     
     async def _enhance_prompt(self, base_prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
@@ -280,27 +280,51 @@ class ReplicateModel(BaseModel):
         ssl._create_default_https_context = ssl._create_unverified_context
         self.client = replicate.Client(api_token=config.replicate_api_token)
     
+    def get_curtain_style_prompt(self, style: str) -> str:
+        """Return appropriate prompt based on curtain style"""
+        from .config import CurtainStyle
+        style_prompts = {
+            CurtainStyle.CLOSED.value: """Transform the room by installing one continuous curtain track mounted at the ceiling line, spanning the entire wall width above all windows. 
+                        Install floor-to-ceiling curtains that hang straight down in graceful folds, covering all windows completely from ceiling to floor with no gap at the top. 
+                        The curtain fabric should feature the SMALL REPEATING PATTERN from the second image, tiled seamlessly 
+                        across the entire curtain surface - the pattern should repeat many times in a regular grid, 
+                        maintaining the original small scale of the pattern elements. CRITICAL: Curtains must be mounted at the ceiling line and extend fully from ceiling to floor as one unified treatment across the entire wall.""",
+            CurtainStyle.HALF_OPEN.value: """Transform the room by installing one continuous curtain track mounted at the ceiling line, spanning the entire wall width above all windows. 
+                           Install floor-to-ceiling curtains that are parted in the middle, with panels elegantly gathered and pulled to both left and right sides, extending from ceiling to floor with no gap at the top. 
+                           The curtain fabric should feature the SMALL REPEATING PATTERN from the second image, tiled seamlessly across the entire curtain surface - 
+                           the pattern should repeat many times in a regular grid, maintaining the original small scale of the pattern elements. 
+                           The curtains should create a symmetrical opening in the center, allowing natural light through the middle while framing the windows with fabric on both sides. 
+                           CRITICAL: This should be ONE continuous curtain treatment mounted at the ceiling line with panels drawn to both sides, extending fully from ceiling to floor, not separate curtains for each window.""",
+            CurtainStyle.WITH_SHEERS.value: """Transform the room by installing a double-track curtain system mounted at the ceiling line with sheer white curtains 
+                             closest to the window and main curtains on the outer track. The main curtains should feature 
+                             the SMALL REPEATING PATTERN from the second image, tiled seamlessly across the curtain surface - 
+                             the pattern should repeat many times in a regular grid, maintaining the original small scale. 
+                             CRITICAL: Both layers must be mounted at the ceiling line and extend fully from ceiling to floor with no gap at the top."""
+        }
+        return style_prompts.get(style, style_prompts[CurtainStyle.HALF_OPEN.value])
+    
     async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> str:
         try:
             room_url = await self._upload_image(room_image)
             fabric_url = await self._upload_image(fabric_image)
             
-            # Create a composite prompt with fabric description
-            fabric_colors = self._analyze_fabric_colors(fabric_image)
-            enhanced_prompt = f"Transform this room by adding elegant floor-length curtains with {fabric_colors} fabric to all windows. {prompt}"
+            # Get style-specific prompt
+            style_prompt = self.get_curtain_style_prompt(curtain_style)
             
             output = await asyncio.to_thread(
                 self.client.run,
-                "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+                "google/nano-banana",
                 input={
-                    "prompt": f"Cover all the windows with {fabric_colors} with long curtains, keep room identical",
-                    "image": room_url,
-                    "strength": 0.3,
-                    "num_inference_steps": 15,
-                    "guidance_scale": 6
+                    "prompt": style_prompt,
+                    "image_input": [room_url, fabric_url]
                 }
             )
-            return output[0] if output else None
+            # Handle FileOutput object or list
+            if hasattr(output, 'url'):
+                return output.url
+            elif isinstance(output, list) and len(output) > 0:
+                return output[0].url if hasattr(output[0], 'url') else output[0]
+            return output
         except Exception as e:
             logger.error(f"Replicate error: {e}")
             raise ModelError(f"Replicate generation failed: {e}")
@@ -444,6 +468,9 @@ class ModelFactory:
             return LangChainOpenAIModel()
         elif model_type in [ModelType.REPLICATE_CONTROLNET, ModelType.REPLICATE_REALISTIC]:
             return ReplicateModel()
+        elif model_type == ModelType.REALISTIC_FOLD:
+            from .realistic_curtain_model import RealisticCurtainModel
+            return RealisticCurtainModel(config.openai_api_key)
         elif model_type == ModelType.TEST_MODE:
             return TestModel()
         else:

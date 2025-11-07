@@ -266,12 +266,13 @@ class ImageProcessor:
         
         return (
             f"Transform this interior room by replacing any existing window treatments (blinds, shades, or bare windows) with {style_desc}. "
+            f"CRITICAL: Install curtain rods at the ceiling line and hang curtains that extend fully from the ceiling all the way down to the floor with no gap at the top. "
             f"Maintain the exact same room layout, furniture placement, wall colors, and architectural features. "
             f"Keep the same {room_analysis['lighting']} and {room_analysis['color_scheme']}. "
             f"Add beautiful curtains made from fabric with {fabric_analysis['colors']} and {fabric_analysis['texture']} featuring {fabric_analysis['pattern']}. "
-            f"The curtains should be styled as {style.value.replace('_', ' ')}, hanging from ceiling to floor, properly fitted to all windows in the space. "
+            f"The curtains should be styled as {style.value.replace('_', ' ')}, mounted at ceiling height and hanging down to the floor, properly fitted to all windows in the space. "
             f"Preserve the room's {room_analysis['style']} aesthetic while enhancing it with the new curtains. "
-            f"Show realistic fabric draping, natural folds, and proper proportions. "
+            f"Show realistic fabric draping, natural folds, and proper proportions with curtains covering the full height from ceiling to floor. "
             f"Professional interior design photography with natural lighting and shadows, high resolution."
         )
     
