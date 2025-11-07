@@ -154,8 +154,7 @@ class LangChainOpenAIModel(BaseModel):
                 'https://api.openai.com/v1/images/edits',
                 files=files,
                 data=data,
-                headers=headers,
-                timeout=60
+                headers=headers
             )
             
             if response.status_code == 200:
