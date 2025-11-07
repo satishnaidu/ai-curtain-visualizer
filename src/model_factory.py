@@ -134,10 +134,9 @@ class LangChainOpenAIModel(BaseModel):
             
             data = {
                 'model': 'gpt-image-1',
-                'prompt': enhanced_prompt,
+                'prompt': style_prompt,
                 'n': 1,
                 'size': '1024x1024',
-                'response_format': 'url',
                 'input_fidelity': 'high'
             }
             
