@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union, Tuple
 from loguru import logger
-from .config import config, CurtainStyle
+from .config import config, CurtainStyle, TreatmentType, BlindsStyle
 from .exceptions import ImageValidationError, APIError, ImageProcessingError, ModelError
 from .model_factory import ModelFactory
 from .gallery_manager import GalleryManager
@@ -35,7 +35,7 @@ class ImageProcessor:
                 "INVALID_FILE_TYPE"
             )
 
-    async def process_images(self, room_photo, fabric_photo, user_phone=None, curtain_style: CurtainStyle = None) -> Union[Image.Image, str]:
+    async def process_images(self, room_photo, fabric_photo, user_phone=None, treatment_type: TreatmentType = TreatmentType.CURTAINS, curtain_style: CurtainStyle = None, blinds_style: BlindsStyle = None) -> Union[Image.Image, str]:
         """Process room and fabric photos asynchronously"""
         try:
             # Validate images
@@ -48,7 +48,7 @@ class ImageProcessor:
             
             logger.info(f"Processing optimized images: room={room_image.size}, fabric={fabric_image.size}")
 
-            result, saved_path = await self.generate_curtain_visualization(room_image, fabric_image, user_phone, curtain_style, room_photo.name, fabric_photo.name)
+            result, saved_path = await self.generate_visualization(room_image, fabric_image, user_phone, treatment_type, curtain_style, blinds_style, room_photo.name, fabric_photo.name)
             
             # Add to gallery after successful generation
             self.gallery_manager.add_to_gallery(room_photo, fabric_photo, saved_path, user_phone)
@@ -61,31 +61,30 @@ class ImageProcessor:
             logger.error(f"Unexpected error in image processing: {str(e)}")
             raise ImageProcessingError(f"Error processing images: {str(e)}", "PROCESSING_FAILED")
 
-    async def generate_curtain_visualization(self, room_image: Image.Image, fabric_image: Image.Image, user_phone=None, curtain_style: CurtainStyle = None, room_name="room.jpg", fabric_name="fabric.jpg") -> Union[Image.Image, str]:
-        """Generate curtain visualization using selected model with retry logic"""
+    async def generate_visualization(self, room_image: Image.Image, fabric_image: Image.Image, user_phone=None, treatment_type: TreatmentType = TreatmentType.CURTAINS, curtain_style: CurtainStyle = None, blinds_style: BlindsStyle = None, room_name="room.jpg", fabric_name="fabric.jpg") -> Union[Image.Image, str]:
+        """Generate window treatment visualization using selected model with retry logic"""
         for attempt in range(config.max_retries):
             try:
                 # Extract fabric characteristics
                 fabric_analysis = self.analyze_fabric(fabric_image)
                 room_analysis = self.analyze_room(room_image)
                 
-                # Generate enhanced prompt with curtain style
-                prompt = self.generate_enhanced_prompt(room_analysis, fabric_analysis, curtain_style)
+                # Generate enhanced prompt based on treatment type
+                if treatment_type == TreatmentType.BLINDS:
+                    prompt = self.generate_blinds_prompt(room_analysis, fabric_analysis, blinds_style)
+                else:
+                    prompt = self.generate_curtains_prompt(room_analysis, fabric_analysis, curtain_style)
                 
-                logger.info(f"Generating visualization (attempt {attempt + 1}/{config.max_retries})")
+                logger.info(f"Generating {treatment_type.value} visualization (attempt {attempt + 1}/{config.max_retries})")
                 
-                # Generate image using the selected model with curtain style
-                curtain_style_value = curtain_style.value if curtain_style else None
-                result = await self.model.generate_image(prompt, room_image, fabric_image, curtain_style=curtain_style_value)
+                # Generate image using the selected model
+                style_value = (blinds_style.value if treatment_type == TreatmentType.BLINDS else curtain_style.value) if (blinds_style or curtain_style) else None
+                result = await self.model.generate_image(prompt, room_image, fabric_image, curtain_style=style_value)
                 
                 # Save result to filesystem with user phone
-                saved_path = await self._save_result(result, user_phone)
+                saved_path = await self._save_result(result, user_phone, treatment_type.value)
                 
-                # Add to gallery for public viewing (pass original photo objects)
-                # Note: We need to pass the original photos from the calling function
-                # This will be handled in the process_images method
-                
-                logger.success(f"Curtain visualization generated and saved to {saved_path}")
+                logger.success(f"{treatment_type.value.title()} visualization generated and saved to {saved_path}")
                 return result, saved_path
 
             except (APIError, ModelError) as e:
@@ -95,7 +94,7 @@ class ImageProcessor:
                 await asyncio.sleep(2 ** attempt)  # Exponential backoff
             except Exception as e:
                 logger.error(f"Unexpected error in visualization generation: {str(e)}")
-                raise APIError(f"Error generating curtain visualization: {str(e)}")
+                raise APIError(f"Error generating visualization: {str(e)}")
 
     def analyze_fabric(self, fabric_image: Image.Image) -> dict:
         """Analyze fabric characteristics"""
@@ -258,9 +257,8 @@ class ImageProcessor:
         except Exception:
             return "classic fabric styling"
 
-    def generate_enhanced_prompt(self, room_analysis: dict, fabric_analysis: dict, curtain_style: CurtainStyle = None) -> str:
-        """Generate enhanced prompt for any room transformation"""
-        # Get curtain style description
+    def generate_curtains_prompt(self, room_analysis: dict, fabric_analysis: dict, curtain_style: CurtainStyle = None) -> str:
+        """Generate enhanced prompt for curtain transformation"""
         style = curtain_style or config.default_curtain_style
         style_desc = config.curtain_style_descriptions[style]
         
@@ -274,6 +272,28 @@ class ImageProcessor:
             f"Preserve the room's {room_analysis['style']} aesthetic while enhancing it with the new curtains. "
             f"Show realistic fabric draping, natural folds, and proper proportions with curtains covering the full height from ceiling to floor. "
             f"Professional interior design photography with natural lighting and shadows, high resolution."
+        )
+    
+    def generate_blinds_prompt(self, room_analysis: dict, fabric_analysis: dict, blinds_style: BlindsStyle = None) -> str:
+        """Generate enhanced prompt for blinds transformation using GPT-4 Vision"""
+        style = blinds_style or config.default_blinds_style
+        style_desc = config.blinds_style_descriptions[style]
+        
+        return (
+            f"Transform this interior room by installing {style_desc} that fit EXACTLY to each window frame. "
+            f"CRITICAL REQUIREMENTS: "
+            f"1. Detect ALL windows in the room precisely "
+            f"2. Install {style.value} blinds that fit EXACTLY within each window frame - width and height must match the window opening perfectly "
+            f"3. Blinds must be mounted INSIDE the window recess, not outside "
+            f"4. Each window gets its own separate blind fitted to its exact dimensions "
+            f"5. Use the fabric pattern from the second image as the blind material with {fabric_analysis['colors']} and {fabric_analysis['texture']} "
+            f"6. Maintain the exact same room layout, furniture, walls, floor, and all other elements unchanged "
+            f"7. Keep the same {room_analysis['lighting']} and {room_analysis['color_scheme']} "
+            f"8. Show blinds in a partially lowered position (70% down) to display the fabric pattern clearly "
+            f"9. Ensure realistic shadows and depth showing blinds are inside the window frame "
+            f"10. For {style.value} blinds: show appropriate mechanism (roller tube, slats, or fabric folds) "
+            f"Preserve the room's {room_analysis['style']} aesthetic. "
+            f"Professional interior design photography, photorealistic, high resolution, natural lighting."
         )
     
     def _optimize_image(self, image: Image.Image, max_size: int = 1024) -> Image.Image:
@@ -296,7 +316,7 @@ class ImageProcessor:
         
         return image
     
-    async def _save_result(self, result: Union[Image.Image, str], user_phone: str = None) -> str:
+    async def _save_result(self, result: Union[Image.Image, str], user_phone: str = None, treatment_type: str = "curtain") -> str:
         """Save generated result to filesystem organized by user phone"""
         # Create user-specific directory
         if user_phone:
@@ -307,7 +327,7 @@ class ImageProcessor:
             user_dir = self.base_output_dir
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"curtain_visualization_{timestamp}.png"
+        filename = f"{treatment_type}_visualization_{timestamp}.png"
         filepath = user_dir / filename
         
         if isinstance(result, str):  # URL from API

@@ -5,7 +5,7 @@ from pathlib import Path
 from loguru import logger
 from src.image_processor import ImageProcessor
 from src.exceptions import ImageProcessingError, ImageValidationError, APIError, ModelError
-from src.config import config, ModelType, CurtainStyle
+from src.config import config, ModelType, CurtainStyle, TreatmentType, BlindsStyle
 from loguru import logger
 from src.logging_config import setup_logging
 from src.user_manager import UserManager
@@ -45,7 +45,7 @@ class CurtainVisualizerApp:
             layout="wide",
             initial_sidebar_state="expanded"
         )
-        st.title("🪟 AI Curtain Visualizer")
+        st.title("🪟 Smart Home Styler - AI Window Treatment Visualizer")
         
         # Enhanced sidebar with model info and settings
         with st.sidebar:
@@ -182,24 +182,49 @@ class CurtainVisualizerApp:
                 st.image(fabric_photo, caption=f"Fabric Pattern ({fabric_photo.size} bytes)", width='stretch')
                 st.caption(f"File: {fabric_photo.name} | Size: {fabric_photo.size:,} bytes (will be auto-optimized)")
 
-        # Curtain Style Selection
+        # Treatment Type Selection
         st.divider()
-        st.subheader("🎨 Curtain Style")
+        st.subheader("🎨 Window Treatment Type")
         
-        # Initialize session state for curtain style if not present
+        # Initialize session state
+        if 'treatment_type' not in st.session_state:
+            st.session_state.treatment_type = TreatmentType.CURTAINS
         if 'curtain_style' not in st.session_state:
             st.session_state.curtain_style = config.default_curtain_style
+        if 'blinds_style' not in st.session_state:
+            st.session_state.blinds_style = config.default_blinds_style
         
-        # Create style selection with descriptions
-        style_options = {style: config.curtain_style_descriptions[style] for style in CurtainStyle}
-        selected_style = st.selectbox(
-            "Choose your curtain style",
-            options=list(style_options.keys()),
-            format_func=lambda x: f"{x.value.replace('_', ' ').title()} - {style_options[x]}",
-            index=list(CurtainStyle).index(st.session_state.curtain_style),
-            key="style_selector"
+        # Treatment type selector
+        treatment_type = st.radio(
+            "Select treatment type",
+            options=[TreatmentType.CURTAINS, TreatmentType.BLINDS],
+            format_func=lambda x: x.value.title(),
+            horizontal=True,
+            key="treatment_selector"
         )
-        st.session_state.curtain_style = selected_style
+        st.session_state.treatment_type = treatment_type
+        
+        # Style selection based on treatment type
+        if treatment_type == TreatmentType.CURTAINS:
+            style_options = {style: config.curtain_style_descriptions[style] for style in CurtainStyle}
+            selected_style = st.selectbox(
+                "Choose your curtain style",
+                options=list(style_options.keys()),
+                format_func=lambda x: f"{x.value.replace('_', ' ').title()} - {style_options[x]}",
+                index=list(CurtainStyle).index(st.session_state.curtain_style),
+                key="curtain_style_selector"
+            )
+            st.session_state.curtain_style = selected_style
+        else:
+            style_options = {style: config.blinds_style_descriptions[style] for style in BlindsStyle}
+            selected_style = st.selectbox(
+                "Choose your blinds style",
+                options=list(style_options.keys()),
+                format_func=lambda x: f"{x.value.replace('_', ' ').title()} - {style_options[x]}",
+                index=list(BlindsStyle).index(st.session_state.blinds_style),
+                key="blinds_style_selector"
+            )
+            st.session_state.blinds_style = selected_style
         
         # Generation section
         st.divider()
@@ -248,13 +273,14 @@ class CurtainVisualizerApp:
     def _handle_generation(self, room_photo, fabric_photo):
         """Handle the image generation process with comprehensive error handling"""
         try:
-            logger.info(f"Starting generation for room: {room_photo.name}, fabric: {fabric_photo.name}")
+            treatment_type = st.session_state.treatment_type
+            logger.info(f"Starting {treatment_type.value} generation for room: {room_photo.name}, fabric: {fabric_photo.name}")
             
             # Create progress indicators
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            with st.spinner("🔄 Processing images and generating visualization..."):
+            with st.spinner(f"🔄 Processing images and generating {treatment_type.value} visualization..."):
                 # Update progress
                 progress_bar.progress(20)
                 status_text.text("Validating images...")
@@ -266,18 +292,21 @@ class CurtainVisualizerApp:
                     progress_bar, 
                     status_text, 
                     st.session_state.user_phone,
-                    st.session_state.curtain_style
+                    treatment_type,
+                    st.session_state.curtain_style,
+                    st.session_state.blinds_style
                 ))
                 
                 progress_bar.progress(100)
                 status_text.text("✅ Generation complete!")
                 
                 # Display result
+                treatment_name = treatment_type.value.title()
                 if config.test_mode:
-                    st.success("🧪 Test visualization generated successfully!")
+                    st.success(f"🧪 Test {treatment_name} visualization generated successfully!")
                     st.info("This is a mock result created by combining your images. Enable API mode for AI-generated results.")
                 else:
-                    st.success("Curtain visualization generated successfully!")
+                    st.success(f"{treatment_name} visualization generated successfully!")
                 
                 if isinstance(result, str):  # URL from DALL-E
                     st.image(result, caption="Generated Curtain Visualization", width='stretch')
@@ -343,7 +372,7 @@ class CurtainVisualizerApp:
             st.error(f"💥 An unexpected error occurred: {str(e)}")
             st.info("Please try again or contact support if the issue persists.")
     
-    async def _async_generate(self, room_photo, fabric_photo, progress_bar, status_text, user_phone, curtain_style: CurtainStyle):
+    async def _async_generate(self, room_photo, fabric_photo, progress_bar, status_text, user_phone, treatment_type: TreatmentType, curtain_style: CurtainStyle, blinds_style: BlindsStyle):
         """Async wrapper for image generation with progress updates"""
         progress_bar.progress(40)
         status_text.text("Analyzing images...")
@@ -351,8 +380,15 @@ class CurtainVisualizerApp:
         # Get or initialize image processor
         processor = self._get_image_processor()
         
-        # Process images with user phone and curtain style
-        result, saved_path = await processor.process_images(room_photo, fabric_photo, user_phone, curtain_style)
+        # Process images with treatment type and styles
+        result, saved_path = await processor.process_images(
+            room_photo, 
+            fabric_photo, 
+            user_phone, 
+            treatment_type,
+            curtain_style,
+            blinds_style
+        )
         
         progress_bar.progress(80)
         status_text.text("Saving image...")

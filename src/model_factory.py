@@ -65,11 +65,12 @@ class LangChainOpenAIModel(BaseModel):
             | StrOutputParser()
         )
 
-    def get_curtain_style_prompt(self, style: str) -> str:
-        """Return appropriate prompt based on curtain style"""
-        from .config import CurtainStyle
+    def get_style_prompt(self, style: str) -> str:
+        """Return appropriate prompt based on treatment style (curtains or blinds)"""
+        from .config import CurtainStyle, BlindsStyle
         
-        style_prompts = {
+        # Curtain style prompts
+        curtain_prompts = {
             CurtainStyle.CLOSED.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, hanging straight down in graceful folds, covering all windows completely. 
                         CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
                         Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
@@ -85,8 +86,32 @@ class LangChainOpenAIModel(BaseModel):
                              Tile the fabric pattern seamlessly across the curtain surface, maintaining the original scale and details. 
                              Both layers must extend from ceiling to floor with no gap at the top."""
         }
+        
+        # Blinds style prompts
+        blinds_prompts = {
+            BlindsStyle.ROLLER.value: """Transform the first image (room) by installing sleek roller blinds that fit EXACTLY within each window frame. 
+                        CRITICAL: 1) Detect ALL windows precisely 2) Install roller blinds INSIDE each window recess, not outside 3) Each window gets its own separate blind fitted to exact dimensions 
+                        4) Use the EXACT pattern, texture, and colors from the second image (fabric photo) as the blind material 5) Show blinds 70% lowered to display the fabric pattern 
+                        6) Show roller tube mechanism at top 7) Maintain exact room layout unchanged 8) Realistic shadows showing inside mount.""",
 
-        return style_prompts.get(style, style_prompts[CurtainStyle.HALF_OPEN.value])
+            BlindsStyle.VENETIAN.value: """Transform the first image (room) by installing classic venetian blinds with horizontal slats that fit EXACTLY within each window frame. 
+                           CRITICAL: 1) Detect ALL windows precisely 2) Install venetian blinds INSIDE each window recess 3) Each window gets its own separate blind 
+                           4) Use the EXACT colors from the second image (fabric photo) for the slat color 5) Show horizontal slats in partially open position 
+                           6) Show tilt mechanism and adjustment cord 7) Maintain exact room layout unchanged 8) Realistic shadows showing inside mount.""",
+
+            BlindsStyle.VERTICAL.value: """Transform the first image (room) by installing modern vertical blinds that fit EXACTLY within each window frame. 
+                             CRITICAL: 1) Detect ALL windows precisely 2) Install vertical blinds INSIDE each window recess 3) Each window gets its own separate blind 
+                             4) Use the EXACT pattern and colors from the second image (fabric photo) for the vertical slats 5) Show vertical slats partially open 
+                             6) Show track system at top 7) Maintain exact room layout unchanged 8) Realistic shadows showing inside mount.""",
+
+            BlindsStyle.ROMAN.value: """Transform the first image (room) by installing elegant roman blinds with soft fabric folds that fit EXACTLY within each window frame. 
+                           CRITICAL: 1) Detect ALL windows precisely 2) Install roman blinds INSIDE each window recess 3) Each window gets its own separate blind 
+                           4) Use the EXACT pattern, texture, and colors from the second image (fabric photo) as the blind fabric 5) Show roman blinds 70% lowered with visible horizontal folds 
+                           6) Show fabric fold mechanism 7) Maintain exact room layout unchanged 8) Realistic shadows showing inside mount."""
+        }
+        
+        # Try curtain prompts first, then blinds prompts
+        return curtain_prompts.get(style) or blinds_prompts.get(style) or curtain_prompts[CurtainStyle.HALF_OPEN.value]
 
     def get_style_reference_image(self, style: str, config) -> bytes:
         """Return reference image bytes based on curtain style"""
@@ -124,8 +149,8 @@ class LangChainOpenAIModel(BaseModel):
             fabric_hash = hashlib.md5(fabric_bytes.getvalue()).hexdigest()[:8]
             timestamp = int(time.time())
             
-            # Get style-specific prompt with fabric details and unique identifiers
-            style_prompt = self.get_curtain_style_prompt(curtain_style)
+            # Get style-specific prompt (supports both curtains and blinds) with fabric details and unique identifiers
+            style_prompt = self.get_style_prompt(curtain_style)
             enhanced_prompt = f"{style_prompt} FABRIC_ID:{fabric_hash} TIMESTAMP:{timestamp} "
             
             # Reset BytesIO positions after hashing
@@ -176,43 +201,7 @@ class LangChainOpenAIModel(BaseModel):
             logger.error(f"OpenAI image edit error: {str(e)}")
             raise ModelError(f"Failed to edit image: {str(e)}")
     
-    async def _enhance_prompt(self, base_prompt: str, room_image: Image.Image, fabric_image: Image.Image) -> str:
-        try:
-            room_context = self._analyze_room_context(room_image)
-            fabric_colors = self._extract_fabric_colors(fabric_image)
-            
-            result = await self.chain.ainvoke({
-                "room_context": room_context,
-                "fabric_colors": fabric_colors,
-                "base_prompt": base_prompt
-            })
-            
-            return result
-            
-        except Exception as e:
-            logger.warning(f"Prompt enhancement failed, using base prompt: {str(e)}")
-            return base_prompt
     
-    def _analyze_room_context(self, room_image: Image.Image) -> str:
-        # Generic room analysis for any interior space
-        try:
-            width, height = room_image.size
-            
-            # Sample room to determine general characteristics
-            center_color = room_image.getpixel((width//2, height//2))
-            avg_brightness = sum(center_color) // 3
-            
-            if avg_brightness > 200:
-                room_desc = "A bright, airy interior space with light-colored walls and good natural lighting"
-            elif avg_brightness > 120:
-                room_desc = "A well-lit interior room with comfortable ambient lighting and medium-toned decor"
-            else:
-                room_desc = "A cozy interior space with warm, intimate lighting and rich color tones"
-            
-            return f"{room_desc}, featuring windows that would benefit from elegant curtain treatments, maintaining the existing furniture layout and architectural elements"
-            
-        except Exception:
-            return "An interior room with windows suitable for curtain installation, preserving the existing decor and layout"
     
     def _image_to_base64(self, image: Image.Image) -> str:
         """Convert PIL image to base64 string"""

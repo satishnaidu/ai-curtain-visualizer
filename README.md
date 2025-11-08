@@ -1,10 +1,12 @@
-# AI Curtain Virtualizer - Production Grade
+# Smart Home Styler - Production Grade
 
-A production-ready AI-powered curtain visualization application built with LangChain, Streamlit, and advanced machine learning frameworks.
+A production-ready AI-powered window treatment visualization application supporting both **curtains** and **blinds**. Built with LangChain, GPT-4 Vision, Streamlit, and advanced machine learning frameworks.
 
 ## Features
 
 ### 🚀 Production-Grade Architecture
+- **Dual Treatment Support**: Curtains AND Blinds visualization
+- **GPT-4 Vision Integration**: Precise window detection and fitting
 - **LangChain Integration**: Advanced prompt engineering and model orchestration
 - **Async Processing**: Non-blocking image generation with progress tracking
 - **Comprehensive Error Handling**: Structured exceptions with retry logic
@@ -12,16 +14,26 @@ A production-ready AI-powered curtain visualization application built with LangC
 - **Caching**: TTL-based caching for improved performance
 - **Configuration Management**: Pydantic-based settings with environment variables
 
+### 🪟 Window Treatment Types
+- **Curtains**: Floor-to-ceiling curtains with multiple styles (Closed, Half-Open, With Sheers)
+- **Blinds**: Window-fitted blinds with exact dimensions (Roller, Venetian, Vertical, Roman)
+
 ### 🤖 AI Models Supported
-- **LangChain + OpenAI**: Enhanced prompt engineering with GPT-4 Vision
+- **LangChain + OpenAI GPT-4 Vision**: Enhanced prompt engineering (Recommended for blinds)
 - **DALL-E 3**: High-quality image generation
-- **Stable Diffusion**: Local GPU-accelerated generation
+- **Replicate ControlNet**: Advanced control over generation
+- **Test Mode**: Mock generation for development
 
 ### 📊 Advanced Features
+- **Treatment Type Selection**: Choose between curtains or blinds
+- **Style Customization**: Multiple styles for each treatment type
+- **Precise Window Fitting**: Blinds fit exactly to window dimensions
 - **Image Validation**: Comprehensive file type and size validation
 - **Color Analysis**: Advanced fabric color extraction and analysis
 - **Room Context Analysis**: Intelligent room characteristic detection
 - **Progress Tracking**: Real-time generation progress updates
+- **Gallery System**: Public showcase of generated visualizations
+- **Credit System**: User management with credit tracking
 - **Health Checks**: Application monitoring and health endpoints
 
 ## Quick Start

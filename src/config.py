@@ -30,6 +30,16 @@ class CurtainStyle(Enum):
     HALF_OPEN = "half_open"
     WITH_SHEERS = "with_sheers"
 
+class TreatmentType(Enum):
+    CURTAINS = "curtains"
+    BLINDS = "blinds"
+
+class BlindsStyle(Enum):
+    ROLLER = "roller"
+    VENETIAN = "venetian"
+    VERTICAL = "vertical"
+    ROMAN = "roman"
+
 class Config(BaseSettings):
     # API Keys
     openai_api_key: Optional[str] = Field("your_api_key_here", env="OPENAI_API_KEY")
@@ -92,6 +102,15 @@ class Config(BaseSettings):
         CurtainStyle.CLOSED: "Elegant floor-length curtains hanging straight down in graceful folds",
         CurtainStyle.HALF_OPEN: "Curtains elegantly pulled to one side, creating an asymmetrical drape",
         CurtainStyle.WITH_SHEERS: "Layered curtains with sheer inner layer for filtered light"
+    }
+    
+    # Blinds Style Configuration
+    default_blinds_style: BlindsStyle = BlindsStyle.ROLLER
+    blinds_style_descriptions: dict = {
+        BlindsStyle.ROLLER: "Sleek roller blinds mounted inside window frame",
+        BlindsStyle.VENETIAN: "Classic horizontal slat blinds with adjustable light control",
+        BlindsStyle.VERTICAL: "Modern vertical blinds perfect for wide windows",
+        BlindsStyle.ROMAN: "Elegant fabric roman blinds with soft folds"
     }
     
     @property
