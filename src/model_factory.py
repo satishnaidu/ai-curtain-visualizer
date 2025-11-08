@@ -87,27 +87,35 @@ class LangChainOpenAIModel(BaseModel):
                              Both layers must extend from ceiling to floor with no gap at the top."""
         }
         
-        # Blinds style prompts
+        # Blinds style prompts - ENHANCED for seamless pattern tiling
         blinds_prompts = {
             BlindsStyle.ROLLER.value: """Transform the first image (room) by installing sleek roller blinds that fit EXACTLY within each window frame. 
-                        CRITICAL: 1) Detect ALL windows precisely 2) Install roller blinds INSIDE each window recess, not outside 3) Each window gets its own separate blind fitted to exact dimensions 
-                        4) Use the EXACT pattern, texture, and colors from the second image (fabric photo) as the blind material 5) Show blinds 70% lowered to display the fabric pattern 
-                        6) Show roller tube mechanism at top 7) Maintain exact room layout unchanged 8) Realistic shadows showing inside mount.""",
+                        CRITICAL FABRIC PATTERN: The blind material MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                        TILE the fabric pattern SEAMLESSLY and REPEATEDLY across the ENTIRE blind surface from top to bottom and left to right, maintaining the original scale and details. 
+                        The pattern should repeat multiple times to cover the full blind area like wallpaper or continuous fabric. 
+                        INSTALLATION: 1) Detect ALL windows precisely 2) Install roller blinds INSIDE each window recess 3) Each window gets separate blind fitted to exact dimensions 
+                        4) Show blinds 70% lowered 5) Show roller tube mechanism at top 6) Maintain room layout unchanged 7) Realistic shadows showing inside mount.""",
 
             BlindsStyle.VENETIAN.value: """Transform the first image (room) by installing classic venetian blinds with horizontal slats that fit EXACTLY within each window frame. 
-                           CRITICAL: 1) Detect ALL windows precisely 2) Install venetian blinds INSIDE each window recess 3) Each window gets its own separate blind 
-                           4) Use the EXACT colors from the second image (fabric photo) for the slat color 5) Show horizontal slats in partially open position 
-                           6) Show tilt mechanism and adjustment cord 7) Maintain exact room layout unchanged 8) Realistic shadows showing inside mount.""",
+                           CRITICAL FABRIC PATTERN: Each horizontal slat MUST use the EXACT colors and pattern from the second image (fabric photo). 
+                           TILE the pattern SEAMLESSLY across ALL slats, creating a continuous repeating pattern from top to bottom of the blind. 
+                           The pattern should flow across multiple slats like a tiled surface or continuous fabric. 
+                           INSTALLATION: 1) Detect ALL windows precisely 2) Install venetian blinds INSIDE each window recess 3) Each window gets separate blind 
+                           4) Show horizontal slats in partially open position 5) Show tilt mechanism 6) Maintain room layout unchanged 7) Realistic shadows showing inside mount.""",
 
             BlindsStyle.VERTICAL.value: """Transform the first image (room) by installing modern vertical blinds that fit EXACTLY within each window frame. 
-                             CRITICAL: 1) Detect ALL windows precisely 2) Install vertical blinds INSIDE each window recess 3) Each window gets its own separate blind 
-                             4) Use the EXACT pattern and colors from the second image (fabric photo) for the vertical slats 5) Show vertical slats partially open 
-                             6) Show track system at top 7) Maintain exact room layout unchanged 8) Realistic shadows showing inside mount.""",
+                             CRITICAL FABRIC PATTERN: Each vertical slat MUST use the EXACT pattern, texture, and colors from the second image (fabric photo). 
+                             TILE the fabric pattern SEAMLESSLY and REPEATEDLY across ALL vertical slats from left to right, maintaining the original scale. 
+                             The pattern should repeat multiple times across the width like a continuous fabric surface or wallpaper. 
+                             INSTALLATION: 1) Detect ALL windows precisely 2) Install vertical blinds INSIDE each window recess 3) Each window gets separate blind 
+                             4) Show vertical slats partially open 5) Show track system at top 6) Maintain room layout unchanged 7) Realistic shadows showing inside mount.""",
 
             BlindsStyle.ROMAN.value: """Transform the first image (room) by installing elegant roman blinds with soft fabric folds that fit EXACTLY within each window frame. 
-                           CRITICAL: 1) Detect ALL windows precisely 2) Install roman blinds INSIDE each window recess 3) Each window gets its own separate blind 
-                           4) Use the EXACT pattern, texture, and colors from the second image (fabric photo) as the blind fabric 5) Show roman blinds 70% lowered with visible horizontal folds 
-                           6) Show fabric fold mechanism 7) Maintain exact room layout unchanged 8) Realistic shadows showing inside mount."""
+                           CRITICAL FABRIC PATTERN: The blind fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                           TILE the fabric pattern SEAMLESSLY and REPEATEDLY across the ENTIRE blind surface, maintaining the original scale and details. 
+                           The pattern should repeat multiple times vertically and horizontally to cover the full blind area like continuous fabric or wallpaper. 
+                           INSTALLATION: 1) Detect ALL windows precisely 2) Install roman blinds INSIDE each window recess 3) Each window gets separate blind 
+                           4) Show roman blinds 70% lowered with visible horizontal folds 5) Show fabric fold mechanism 6) Maintain room layout unchanged 7) Realistic shadows showing inside mount."""
         }
         
         # Try curtain prompts first, then blinds prompts
@@ -210,48 +218,6 @@ class LangChainOpenAIModel(BaseModel):
         buffer = BytesIO()
         image.save(buffer, format='JPEG', quality=85)
         return base64.b64encode(buffer.getvalue()).decode()
-    
-    def _extract_fabric_colors(self, fabric_image: Image.Image) -> str:
-        # Enhanced fabric analysis
-        try:
-            # Convert to RGB if needed
-            if fabric_image.mode != 'RGB':
-                fabric_image = fabric_image.convert('RGB')
-            
-            # Sample colors from different areas
-            width, height = fabric_image.size
-            colors = []
-            
-            # Sample from center and corners
-            sample_points = [
-                (width//2, height//2),  # center
-                (width//4, height//4),  # top-left area
-                (3*width//4, height//4),  # top-right area
-                (width//4, 3*height//4),  # bottom-left area
-                (3*width//4, 3*height//4)  # bottom-right area
-            ]
-            
-            for x, y in sample_points:
-                r, g, b = fabric_image.getpixel((x, y))
-                colors.append((r, g, b))
-            
-            # Analyze dominant colors
-            avg_r = sum(c[0] for c in colors) // len(colors)
-            avg_g = sum(c[1] for c in colors) // len(colors)
-            avg_b = sum(c[2] for c in colors) // len(colors)
-            
-            # Determine color description based on the uploaded fabric
-            if avg_r > 200 and avg_g > 200 and avg_b > 180:
-                return "cream and beige colored fabric with natural woven linen texture, featuring subtle vertical and horizontal thread patterns, light neutral tones with organic fiber appearance"
-            elif avg_r > 150 and avg_g > 130 and avg_b > 100:
-                return "warm beige and tan fabric with natural fiber texture, earthy neutral tones with woven pattern"
-            else:
-                return "neutral colored fabric with natural linen-like texture and woven pattern"
-                
-        except Exception as e:
-            logger.warning(f"Color extraction failed: {e}")
-            return "cream and beige textured fabric with natural woven pattern"
-
 
 
 

@@ -50,8 +50,8 @@ class ImageProcessor:
 
             result, saved_path = await self.generate_visualization(room_image, fabric_image, user_phone, treatment_type, curtain_style, blinds_style, room_photo.name, fabric_photo.name)
             
-            # Add to gallery after successful generation
-            self.gallery_manager.add_to_gallery(room_photo, fabric_photo, saved_path, user_phone)
+            # Add to gallery after successful generation with treatment type
+            self.gallery_manager.add_to_gallery(room_photo, fabric_photo, saved_path, user_phone, treatment_type.value)
             
             return result, saved_path
 
@@ -65,15 +65,13 @@ class ImageProcessor:
         """Generate window treatment visualization using selected model with retry logic"""
         for attempt in range(config.max_retries):
             try:
-                # Extract fabric characteristics
-                fabric_analysis = self.analyze_fabric(fabric_image)
-                room_analysis = self.analyze_room(room_image)
+            
                 
                 # Generate enhanced prompt based on treatment type
                 if treatment_type == TreatmentType.BLINDS:
-                    prompt = self.generate_blinds_prompt(room_analysis, fabric_analysis, blinds_style)
+                    prompt = self.generate_blinds_prompt(blinds_style)
                 else:
-                    prompt = self.generate_curtains_prompt(room_analysis, fabric_analysis, curtain_style)
+                    prompt = self.generate_curtains_prompt(curtain_style)
                 
                 logger.info(f"Generating {treatment_type.value} visualization (attempt {attempt + 1}/{config.max_retries})")
                 
@@ -96,168 +94,8 @@ class ImageProcessor:
                 logger.error(f"Unexpected error in visualization generation: {str(e)}")
                 raise APIError(f"Error generating visualization: {str(e)}")
 
-    def analyze_fabric(self, fabric_image: Image.Image) -> dict:
-        """Analyze fabric characteristics"""
-        # Enhanced fabric analysis
-        colors = self.extract_fabric_colors(fabric_image)
-        texture = self.analyze_texture(fabric_image)
-        pattern = self.detect_pattern(fabric_image)
-        
-        return {
-            "colors": colors,
-            "texture": texture,
-            "pattern": pattern
-        }
-    
-    def analyze_room(self, room_image: Image.Image) -> dict:
-        """Analyze room characteristics dynamically"""
-        try:
-            width, height = room_image.size
-            
-            # Sample room colors to determine scheme
-            sample_points = [(width//4, height//4), (width//2, height//2), (3*width//4, 3*height//4)]
-            room_colors = []
-            for x, y in sample_points:
-                r, g, b = room_image.getpixel((x, y))
-                room_colors.append((r, g, b))
-            
-            avg_brightness = sum(sum(c) for c in room_colors) // (len(room_colors) * 3)
-            
-            # Determine room characteristics
-            if avg_brightness > 200:
-                color_scheme = "bright and airy with light colors"
-                lighting = "well-lit with natural light"
-            elif avg_brightness > 120:
-                color_scheme = "warm and inviting with medium tones"
-                lighting = "comfortable ambient lighting"
-            else:
-                color_scheme = "cozy and intimate with darker tones"
-                lighting = "soft and moody lighting"
-            
-            return {
-                "lighting": lighting,
-                "style": "contemporary interior",
-                "color_scheme": color_scheme,
-                "window_treatment": "existing window coverings"
-            }
-        except Exception as e:
-            logger.warning(f"Room analysis failed: {e}")
-            return {
-                "lighting": "natural lighting",
-                "style": "modern interior",
-                "color_scheme": "neutral color palette",
-                "window_treatment": "current window treatments"
-            }
 
-    def extract_fabric_colors(self, fabric_image: Image.Image) -> str:
-        """Extract dominant colors from fabric image using advanced color analysis"""
-        try:
-            # Sample multiple points for better color analysis
-            width, height = fabric_image.size
-            sample_points = [
-                (width//4, height//4), (width//2, height//4), (3*width//4, height//4),
-                (width//4, height//2), (width//2, height//2), (3*width//4, height//2),
-                (width//4, 3*height//4), (width//2, 3*height//4), (3*width//4, 3*height//4)
-            ]
-            
-            colors = []
-            for x, y in sample_points:
-                r, g, b = fabric_image.getpixel((x, y))
-                colors.append((r, g, b))
-            
-            # Calculate average color
-            avg_r = sum(c[0] for c in colors) // len(colors)
-            avg_g = sum(c[1] for c in colors) // len(colors)
-            avg_b = sum(c[2] for c in colors) // len(colors)
-            
-            # Determine color description based on RGB values
-            if avg_r > avg_g and avg_r > avg_b:
-                if avg_r > 180: return "warm red and pink tones"
-                elif avg_r > 120: return "rich burgundy and wine colors"
-                else: return "deep red and maroon shades"
-            elif avg_g > avg_r and avg_g > avg_b:
-                if avg_g > 180: return "fresh green and sage colors"
-                elif avg_g > 120: return "forest and olive green tones"
-                else: return "deep emerald and hunter green"
-            elif avg_b > avg_r and avg_b > avg_g:
-                if avg_b > 180: return "soft blue and sky tones"
-                elif avg_b > 120: return "navy and royal blue colors"
-                else: return "deep indigo and midnight blue"
-            elif avg_r > 200 and avg_g > 200 and avg_b > 180:
-                return "cream, beige and natural linen colors"
-            elif avg_r > 150 and avg_g > 130 and avg_b > 100:
-                return "warm brown, tan and earth tones"
-            elif avg_r < 80 and avg_g < 80 and avg_b < 80:
-                return "charcoal, black and dark gray tones"
-            elif avg_r > 180 and avg_g > 180 and avg_b > 180:
-                return "white, off-white and light neutral tones"
-            else:
-                return "mixed neutral and natural fabric colors"
-                
-        except Exception as e:
-            logger.warning(f"Color extraction failed: {e}")
-            return "natural fabric colors"
-    
-    def analyze_texture(self, fabric_image: Image.Image) -> str:
-        """Analyze fabric texture dynamically"""
-        try:
-            # Convert to grayscale for texture analysis
-            gray_fabric = fabric_image.convert('L')
-            width, height = gray_fabric.size
-            
-            # Sample texture variation
-            pixels = []
-            for x in range(0, width, width//10):
-                for y in range(0, height, height//10):
-                    if x < width and y < height:
-                        pixels.append(gray_fabric.getpixel((x, y)))
-            
-            # Calculate texture variation
-            if len(pixels) > 1:
-                avg_pixel = sum(pixels) // len(pixels)
-                variation = sum(abs(p - avg_pixel) for p in pixels) // len(pixels)
-                
-                if variation > 30:
-                    return "richly textured fabric with visible weave patterns"
-                elif variation > 15:
-                    return "subtly textured fabric with natural fiber appearance"
-                else:
-                    return "smooth fabric with fine texture"
-            
-            return "natural fabric texture"
-        except Exception:
-            return "quality fabric texture"
-    
-    def detect_pattern(self, fabric_image: Image.Image) -> str:
-        """Detect fabric patterns dynamically"""
-        try:
-            # Sample different areas to detect pattern consistency
-            width, height = fabric_image.size
-            
-            # Compare different quadrants for pattern detection
-            quad1 = fabric_image.crop((0, 0, width//2, height//2))
-            quad2 = fabric_image.crop((width//2, 0, width, height//2))
-            
-            # Simple pattern detection based on color variation
-            q1_colors = quad1.getcolors(maxcolors=256)
-            q2_colors = quad2.getcolors(maxcolors=256)
-            
-            if q1_colors and q2_colors:
-                q1_variety = len(q1_colors)
-                q2_variety = len(q2_colors)
-                
-                if abs(q1_variety - q2_variety) > 20:
-                    return "distinctive patterns and designs"
-                elif abs(q1_variety - q2_variety) > 10:
-                    return "subtle patterns and texture variations"
-                else:
-                    return "solid color with natural fabric texture"
-            
-            return "natural fabric appearance"
-        except Exception:
-            return "classic fabric styling"
-
-    def generate_curtains_prompt(self, room_analysis: dict, fabric_analysis: dict, curtain_style: CurtainStyle = None) -> str:
+    def generate_curtains_prompt(self, curtain_style: CurtainStyle = None) -> str:
         """Generate enhanced prompt for curtain transformation"""
         style = curtain_style or config.default_curtain_style
         style_desc = config.curtain_style_descriptions[style]
@@ -274,7 +112,7 @@ class ImageProcessor:
             f"Professional interior design photography with natural lighting and shadows, high resolution."
         )
     
-    def generate_blinds_prompt(self, room_analysis: dict, fabric_analysis: dict, blinds_style: BlindsStyle = None) -> str:
+    def generate_blinds_prompt(self, blinds_style: BlindsStyle = None) -> str:
         """Generate enhanced prompt for blinds transformation using GPT-4 Vision"""
         style = blinds_style or config.default_blinds_style
         style_desc = config.blinds_style_descriptions[style]

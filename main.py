@@ -106,7 +106,7 @@ class CurtainVisualizerApp:
             
             st.divider()
             st.header("About")
-            st.write("Advanced AI-powered curtain visualization using LangChain and production-grade ML frameworks.")
+            st.write("Advanced AI-powered window treatment visualization supporting curtains and blinds using LangChain and GPT-4 Vision.")
 
         st.write("Upload a room photo and fabric pattern to generate a professional curtain visualization.")
         
@@ -448,15 +448,28 @@ class CurtainVisualizerApp:
         return False
     
     def _render_gallery_tab(self):
-        """Render the gallery tab for public viewing"""
+        """Render the gallery tab with separate curtains and blinds sections"""
         st.header("🖼️ Gallery - See What Others Have Created")
-        st.write("Explore amazing curtain visualizations created by our users. Get inspired and see how our AI transforms rooms!")
+        st.write("Explore amazing window treatment visualizations created by our users!")
         
-        # Get gallery entries
-        entries = self.gallery_manager.get_gallery_entries()
+        # Treatment type filter
+        gallery_filter = st.radio(
+            "View Gallery",
+            options=["All", "Curtains", "Blinds"],
+            horizontal=True,
+            key="gallery_filter"
+        )
+        
+        # Get filtered entries
+        if gallery_filter == "Curtains":
+            entries = self.gallery_manager.get_gallery_entries(treatment_type="curtains")
+        elif gallery_filter == "Blinds":
+            entries = self.gallery_manager.get_gallery_entries(treatment_type="blinds")
+        else:
+            entries = self.gallery_manager.get_gallery_entries()
         
         if not entries:
-            st.info("No gallery items yet. Be the first to create a visualization!")
+            st.info(f"No {gallery_filter.lower()} gallery items yet. Be the first to create one!")
             return
         
         # Display entries in tabular format
@@ -494,6 +507,10 @@ class CurtainVisualizerApp:
             # Show metadata below the images
             col_meta1, col_meta2, col_meta3 = st.columns(3)
             with col_meta2:
+                # Show treatment type badge
+                treatment = entry.get('treatment_type', 'curtain').title()
+                badge_emoji = "🪟" if treatment == "Curtains" else "🎯"
+                st.caption(f"{badge_emoji} Type: {treatment}")
                 st.caption(f"👤 User: {entry['user_phone']}")
                 if isinstance(entry['timestamp'], list) and len(entry['timestamp']) >= 2:
                     date_str = entry['timestamp'][0]
@@ -509,7 +526,7 @@ class CurtainVisualizerApp:
         # Call to action at bottom
         st.divider()
         st.markdown("### 🚀 Ready to Create Your Own?")
-        st.write("Join thousands of users creating amazing curtain visualizations!")
+        st.write("Join thousands of users creating amazing window treatment visualizations!")
         
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:

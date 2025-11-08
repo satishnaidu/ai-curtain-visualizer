@@ -117,8 +117,8 @@ class GalleryManager:
         except Exception as e:
             logger.error(f"Error saving gallery data: {e}")
     
-    def add_to_gallery(self, room_photo, fabric_photo, result_path: str, user_phone: str = None):
-        """Add a new entry to the gallery with original photos"""
+    def add_to_gallery(self, room_photo, fabric_photo, result_path: str, user_phone: str = None, treatment_type: str = "curtain"):
+        """Add a new entry to the gallery with original photos and treatment type"""
         try:
             # Generate unique filename base
             timestamp = Path(result_path).stem.split('_')[-2:] if '_' in Path(result_path).stem else ["demo"]
@@ -142,13 +142,13 @@ class GalleryManager:
             result_gallery_path = self.gallery_dir / f"{base_name}_result.png"
             shutil.copy2(result_path, result_gallery_path)
             
-            # Upload to S3 if configured
+            # Upload to S3 if configured with treatment type in path
             s3_urls = {}
             if self.s3_client:
-                logger.info("Uploading gallery images to S3...")
-                s3_urls['room_url'] = self._upload_to_s3(str(room_gallery_path), f"gallery/{base_name}_room.jpg")
-                s3_urls['fabric_url'] = self._upload_to_s3(str(fabric_gallery_path), f"gallery/{base_name}_fabric.jpg")
-                s3_urls['result_url'] = self._upload_to_s3(str(result_gallery_path), f"gallery/{base_name}_result.png")
+                logger.info(f"Uploading gallery images to S3 under {treatment_type}/...")
+                s3_urls['room_url'] = self._upload_to_s3(str(room_gallery_path), f"gallery/{treatment_type}/{base_name}_room.jpg")
+                s3_urls['fabric_url'] = self._upload_to_s3(str(fabric_gallery_path), f"gallery/{treatment_type}/{base_name}_fabric.jpg")
+                s3_urls['result_url'] = self._upload_to_s3(str(result_gallery_path), f"gallery/{treatment_type}/{base_name}_result.png")
                 logger.info(f"S3 upload complete. URLs: {list(s3_urls.keys())}")
             else:
                 logger.warning("S3 client not initialized, skipping S3 upload")
@@ -159,6 +159,7 @@ class GalleryManager:
                 "result_path": str(result_gallery_path),
                 "user_phone": user_phone[:4] + "****" if user_phone else "Demo",
                 "timestamp": timestamp,
+                "treatment_type": treatment_type,
                 **s3_urls
             }
             
@@ -179,8 +180,8 @@ class GalleryManager:
         except Exception as e:
             logger.error(f"Error adding to gallery: {e}")
     
-    def get_gallery_entries(self) -> List[Dict]:
-        """Get all gallery entries using local files"""
+    def get_gallery_entries(self, treatment_type: str = None) -> List[Dict]:
+        """Get gallery entries filtered by treatment type"""
         valid_entries = []
         for entry in self.gallery_data:
             has_local = (os.path.exists(entry.get("room_photo_path", "")) and 
@@ -188,6 +189,14 @@ class GalleryManager:
                         os.path.exists(entry.get("result_path", "")))
             
             if has_local:
+                # Set default treatment_type for old entries
+                if 'treatment_type' not in entry:
+                    entry['treatment_type'] = 'curtain'
+                
+                # Filter by treatment type if specified
+                if treatment_type and entry.get('treatment_type') != treatment_type:
+                    continue
+                
                 entry['display_room'] = entry['room_photo_path']
                 entry['display_fabric'] = entry['fabric_photo_path']
                 entry['display_result'] = entry['result_path']
