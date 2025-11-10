@@ -38,7 +38,6 @@ class LangChainPromptEnhancer:
             "Enhance this curtain visualization prompt:\n\n"
             "Base prompt: {base_prompt}\n"
             "Room context: {room_context}\n"
-            "Fabric analysis: {fabric_analysis}\n"
             "Style preferences: {style_preferences}\n\n"
             "Create a detailed, professional prompt that will generate a high-quality, "
             "photorealistic curtain visualization. Include specific details about:\n"
@@ -63,13 +62,12 @@ class LangChainPromptEnhancer:
         )
     
     async def enhance_prompt(self, base_prompt: str, room_context: Dict[str, Any], 
-                           fabric_analysis: Dict[str, Any], style_preferences: str = "modern elegant") -> PromptEnhancement:
+                            style_preferences: str = "modern elegant") -> PromptEnhancement:
         """Enhance a base prompt with contextual information"""
         
         input_data = {
             "base_prompt": base_prompt,
             "room_context": str(room_context),
-            "fabric_analysis": str(fabric_analysis),
             "style_preferences": style_preferences
         }
         
