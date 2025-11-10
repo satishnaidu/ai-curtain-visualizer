@@ -104,9 +104,7 @@ class ImageProcessor:
             f"Transform this interior room by replacing any existing window treatments (blinds, shades, or bare windows) with {style_desc}. "
             f"CRITICAL: Install curtain rods at the ceiling line and hang curtains that extend fully from the ceiling all the way down to the floor with no gap at the top. "
             f"Maintain the exact same room layout, furniture placement, wall colors, and architectural features. "
-            f"Keep the same {room_analysis['lighting']} and {room_analysis['color_scheme']}. "
             f"The curtains should be styled as {style.value.replace('_', ' ')}, mounted at ceiling height and hanging down to the floor, properly fitted to all windows in the space. "
-            f"Preserve the room's {room_analysis['style']} aesthetic while enhancing it with the new curtains. "
             f"Show realistic fabric draping, natural folds, and proper proportions with curtains covering the full height from ceiling to floor. "
             f"Professional interior design photography with natural lighting and shadows, high resolution."
         )
@@ -124,11 +122,9 @@ class ImageProcessor:
             f"3. Blinds must be mounted INSIDE the window recess, not outside "
             f"4. Each window gets its own separate blind fitted to its exact dimensions "
             f"6. Maintain the exact same room layout, furniture, walls, floor, and all other elements unchanged "
-            f"7. Keep the same {room_analysis['lighting']} and {room_analysis['color_scheme']} "
             f"8. Show blinds in a partially lowered position (70% down) to display the fabric pattern clearly "
             f"9. Ensure realistic shadows and depth showing blinds are inside the window frame "
             f"10. For {style.value} blinds: show appropriate mechanism (roller tube, slats, or fabric folds) "
-            f"Preserve the room's {room_analysis['style']} aesthetic. "
             f"Professional interior design photography, photorealistic, high resolution, natural lighting."
         )
     
