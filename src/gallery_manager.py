@@ -84,11 +84,16 @@ class GalleryManager:
             return False
     
     def _sync_from_s3(self):
-        """Sync missing local files from S3 on startup"""
+        """Sync missing local files from S3 on startup and discover new entries"""
         if not self.s3_client:
             return
         
         logger.info("Syncing gallery images from S3...")
+        
+        # First, discover new entries from S3
+        self._discover_s3_entries()
+        
+        # Then download missing local files
         for entry in self.gallery_data:
             # Download missing local files from S3
             if entry.get('room_url') and not os.path.exists(entry.get('room_photo_path', '')):
@@ -98,6 +103,108 @@ class GalleryManager:
             if entry.get('result_url') and not os.path.exists(entry.get('result_path', '')):
                 self._download_from_s3(entry['result_url'], entry['result_path'])
         logger.info("S3 sync complete")
+    
+    def _discover_s3_entries(self):
+        """Discover gallery entries from S3 that aren't in local gallery.json"""
+        if not self.s3_client:
+            return
+        
+        try:
+            logger.info(f"Discovering gallery entries from S3 bucket: {config.aws_s3_bucket}")
+            
+            # List all objects in gallery/ prefix
+            response = self.s3_client.list_objects_v2(
+                Bucket=config.aws_s3_bucket,
+                Prefix='gallery/'
+            )
+            
+            if 'Contents' not in response:
+                logger.info("No gallery objects found in S3")
+                return
+            
+            # Group files by base name
+            entries_map = {}
+            for obj in response['Contents']:
+                key = obj['Key']
+                # Parse: gallery/{treatment_type}/{base_name}_{type}.{ext}
+                parts = key.split('/')
+                if len(parts) != 3:
+                    continue
+                
+                treatment_type = parts[1]  # curtains or blinds
+                filename = parts[2]
+                
+                # Extract base name (remove _room, _fabric, _result suffix)
+                if '_room.' in filename:
+                    base_name = filename.split('_room.')[0]
+                    file_type = 'room'
+                elif '_fabric.' in filename:
+                    base_name = filename.split('_fabric.')[0]
+                    file_type = 'fabric'
+                elif '_result.' in filename:
+                    base_name = filename.split('_result.')[0]
+                    file_type = 'result'
+                else:
+                    continue
+                
+                entry_key = f"{treatment_type}/{base_name}"
+                if entry_key not in entries_map:
+                    entries_map[entry_key] = {
+                        'base_name': base_name,
+                        'treatment_type': treatment_type
+                    }
+                
+                # Store S3 URL
+                s3_url = f"https://{config.aws_s3_bucket}.s3.{config.aws_s3_region}.amazonaws.com/{key}"
+                entries_map[entry_key][f'{file_type}_url'] = s3_url
+            
+            logger.info(f"Found {len(entries_map)} unique gallery entries in S3")
+            
+            # Add new entries to gallery_data
+            existing_urls = {entry.get('result_url') for entry in self.gallery_data if entry.get('result_url')}
+            
+            for entry_key, s3_entry in entries_map.items():
+                # Only add if we have all three images
+                if all(k in s3_entry for k in ['room_url', 'fabric_url', 'result_url']):
+                    # Skip if already exists
+                    if s3_entry['result_url'] in existing_urls:
+                        continue
+                    
+                    base_name = s3_entry['base_name']
+                    treatment_type = s3_entry['treatment_type']
+                    
+                    # Create local paths
+                    room_path = self.gallery_dir / f"{base_name}_room.jpg"
+                    fabric_path = self.gallery_dir / f"{base_name}_fabric.jpg"
+                    result_path = self.gallery_dir / f"{base_name}_result.png"
+                    
+                    # Extract timestamp from base_name (format: gallery_YYYYMMDD_HHMMSS)
+                    timestamp_parts = base_name.replace('gallery_', '').split('_')
+                    
+                    entry = {
+                        "room_photo_path": str(room_path),
+                        "fabric_photo_path": str(fabric_path),
+                        "result_path": str(result_path),
+                        "room_url": s3_entry['room_url'],
+                        "fabric_url": s3_entry['fabric_url'],
+                        "result_url": s3_entry['result_url'],
+                        "user_phone": "S3**",
+                        "timestamp": timestamp_parts if len(timestamp_parts) >= 2 else ["unknown"],
+                        "treatment_type": treatment_type
+                    }
+                    
+                    self.gallery_data.append(entry)
+                    logger.info(f"Added S3 entry to gallery: {entry_key}")
+            
+            # Save updated gallery
+            if len(self.gallery_data) > len(existing_urls):
+                self._save_gallery()
+                logger.info(f"Gallery updated with {len(self.gallery_data) - len(existing_urls)} new entries from S3")
+        
+        except ClientError as e:
+            logger.error(f"Failed to discover S3 entries: {e}")
+        except Exception as e:
+            logger.error(f"Error discovering S3 entries: {e}")
     
     def _load_gallery(self) -> List[Dict]:
         """Load gallery data from JSON file"""
