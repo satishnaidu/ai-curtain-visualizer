@@ -70,8 +70,8 @@ class StripePaymentProcessor:
                         'quantity': 1,
                     }],
                     mode='payment',
-                    success_url=f'https://dev-curtainvision.streamlit.app/?session_id={{CHECKOUT_SESSION_ID}}&phone={phone.replace("+", "%2B")}',
-                    cancel_url='https://dev-curtainvision.streamlit.app/cancel',
+                    success_url=f'https://stylerai.streamlit.app/?session_id={{CHECKOUT_SESSION_ID}}&phone={phone.replace("+", "%2B")}',
+                    cancel_url='https://stylerai.streamlit.app/cancel',
                     metadata={
                         'phone': phone,
                         'credits': package_info['credits']
