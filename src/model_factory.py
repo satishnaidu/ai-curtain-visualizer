@@ -71,23 +71,29 @@ class LangChainOpenAIModel(BaseModel):
         
         # Curtain style prompts
         curtain_prompts = {
-            CurtainStyle.CLOSED.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, hanging straight down in graceful folds, covering all windows completely. 
-                        CRITICAL: The curtain fabric MUST use the EXACT repeating pattern from the second image (fabric texture). 
-                        Apply this fabric texture directly to the curtains, preserving the pattern repetition exactly as shown. 
-                        Curtains must extend from ceiling to floor with no gap at the top.""",
+            CurtainStyle.CLOSED.value: """Refine this room image to show elegant floor-to-ceiling curtains with realistic fabric draping, natural folds, and proper shadows. 
+                        The curtains should hang from ceiling to floor in graceful vertical folds. 
+                        CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                        Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
+                        The pattern should flow across multiple slats like a tiled surface or continuous fabric. 
+                        Maintain the fabric pattern visible in the image. Add realistic lighting, shadows, and depth. Professional interior photography style.""",
 
-            CurtainStyle.HALF_OPEN.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, parted in the middle with panels gathered to both sides. 
-                           CRITICAL: The curtain fabric MUST use the EXACT repeating pattern from the second image (fabric texture). 
-                           Apply this fabric texture directly to the curtains, preserving the pattern repetition exactly as shown. 
-                           Curtains must extend from ceiling to floor with no gap at the top, creating a symmetrical opening in the center.""",
+            CurtainStyle.HALF_OPEN.value: """Refine this room image to show elegant floor-to-ceiling curtains parted in the middle with panels gathered to both sides. 
+                           The curtains should hang from ceiling to floor with realistic fabric draping, natural folds, and proper shadows. 
+                           CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                           Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern.
+                           The pattern should flow across multiple slats like a tiled surface or continuous fabric.  
+                           Maintain the fabric pattern visible in the image. Create a symmetrical opening in the center. 
+                           Add realistic lighting, shadows, and depth. Professional interior photography style.""",
 
-            CurtainStyle.WITH_SHEERS.value: """Transform the first image (room) by installing a double-layer curtain system mounted at the ceiling line: 
-                             LAYER 1 (Inner): Install sheer white semi-transparent curtains closest to the window, visible through the opening between the main curtains. 
-                             LAYER 2 (Outer): Install main curtains parted in the middle and gathered to both sides. 
-                             CRITICAL: The main outer curtain fabric MUST use the EXACT repeating pattern from the second image (fabric texture). 
-                             Apply this fabric texture directly to the main curtains, preserving the pattern repetition exactly as shown. 
-                             VISIBILITY: The white sheer curtains MUST be clearly visible in the center opening between the parted main curtains, creating a layered effect. 
-                             Both layers must extend from ceiling to floor with no gap at the top. Show the sheers as a distinct white layer behind the patterned main curtains."""
+            CurtainStyle.WITH_SHEERS.value: """Refine this room image to show a double-layer curtain system: 
+                             Add sheer white semi-transparent curtains visible in the center opening. 
+                             The main curtains should be parted to both sides with realistic fabric draping and natural folds. 
+                             CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                             Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
+                             The pattern should flow across multiple slats like a tiled surface or continuous fabric. 
+                             Maintain the fabric pattern visible in the image. Show the sheers as a distinct white layer behind the main curtains. 
+                             Add realistic lighting, shadows, and depth. Professional interior photography style."""
         }
         
         # Blinds style prompts - ENHANCED for seamless pattern tiling
@@ -140,23 +146,39 @@ class LangChainOpenAIModel(BaseModel):
                 return f.read()
         return None
 
-    def _tile_fabric_pattern(self, fabric_image: Image.Image, tile_size: int = 1024) -> Image.Image:
-        """Tile fabric pattern to create seamless repeating texture"""
+    def _create_curtain_composite(self, room_image: Image.Image, fabric_image: Image.Image, style: str) -> Image.Image:
+        """Create composite image with fabric pattern tiled on curtain areas"""
+        from PIL import ImageDraw
+        
+        # Create base composite
+        composite = room_image.copy()
+        width, height = composite.size
+        
+        # Tile fabric to cover full image
         fabric_width, fabric_height = fabric_image.size
+        tiles_x = (width // fabric_width) + 2
+        tiles_y = (height // fabric_height) + 2
         
-        # Calculate how many tiles needed
-        tiles_x = (tile_size // fabric_width) + 2
-        tiles_y = (tile_size // fabric_height) + 2
-        
-        # Create tiled image
-        tiled = Image.new('RGB', (fabric_width * tiles_x, fabric_height * tiles_y))
-        
+        fabric_tiled = Image.new('RGB', (fabric_width * tiles_x, fabric_height * tiles_y))
         for x in range(tiles_x):
             for y in range(tiles_y):
-                tiled.paste(fabric_image, (x * fabric_width, y * fabric_height))
+                fabric_tiled.paste(fabric_image, (x * fabric_width, y * fabric_height))
         
-        # Crop to target size
-        return tiled.crop((0, 0, tile_size, tile_size))
+        fabric_tiled = fabric_tiled.crop((0, 0, width, height))
+        
+        # Blend fabric onto curtain areas (left and right thirds for half-open)
+        if 'half' in style or 'sheers' in style:
+            # Left curtain panel
+            left_panel = fabric_tiled.crop((0, 0, width // 3, height))
+            composite.paste(left_panel, (0, 0))
+            # Right curtain panel
+            right_panel = fabric_tiled.crop((2 * width // 3, 0, width, height))
+            composite.paste(right_panel, (2 * width // 3, 0))
+        else:
+            # Full coverage for closed curtains
+            composite = Image.blend(composite, fabric_tiled, 0.6)
+        
+        return composite
     
     async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> str:
         try:
@@ -165,35 +187,26 @@ class LangChainOpenAIModel(BaseModel):
             import time
             import hashlib
             
-            # Tile fabric pattern for seamless repetition
-            fabric_tiled = self._tile_fabric_pattern(fabric_image)
+            # Create composite with fabric pattern
+            composite = self._create_curtain_composite(room_image, fabric_image, curtain_style or '')
             
-            # Convert images to PNG bytes
+            # Convert to PNG bytes
             room_bytes = BytesIO()
-            room_image.save(room_bytes, format='PNG')
+            composite.save(room_bytes, format='PNG')
             room_bytes.seek(0)
             
             fabric_bytes = BytesIO()
-            fabric_tiled.save(fabric_bytes, format='PNG')
+            fabric_image.save(fabric_bytes, format='PNG')
             fabric_bytes.seek(0)
-      
-            # Generate unique hash from fabric image to force fresh generation
-            fabric_hash = hashlib.md5(fabric_bytes.getvalue()).hexdigest()[:8]
-            timestamp = int(time.time())
             
-            # Get style-specific prompt (supports both curtains and blinds) with fabric details and unique identifiers
+            # Get style-specific prompt
             style_prompt = self.get_style_prompt(curtain_style)
-            enhanced_prompt = f"{style_prompt} FABRIC_ID:{fabric_hash} TIMESTAMP:{timestamp} "
+            enhanced_prompt = style_prompt
             
-            # Reset BytesIO positions after hashing
-            room_bytes.seek(0)
-            fabric_bytes.seek(0)
-            
-            # Prepare multipart form data with image[] array format
-            files = [
-                ('image[]', ('room.png', room_bytes, 'image/png')),
-                ('image[]', ('fabric.png', fabric_bytes, 'image/png'))
-            ]
+            # Prepare form data - only send composite image
+            files = {
+                'image': ('composite.png', room_bytes, 'image/png')
+            }
             
             data = {
                 'model': 'gpt-image-1',
