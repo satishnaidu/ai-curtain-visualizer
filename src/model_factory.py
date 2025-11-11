@@ -72,21 +72,20 @@ class LangChainOpenAIModel(BaseModel):
         # Curtain style prompts
         curtain_prompts = {
             CurtainStyle.CLOSED.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, hanging straight down in graceful folds, covering all windows completely. 
-                        CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
-                        Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
+                        CRITICAL: The curtain fabric MUST use the EXACT repeating pattern from the second image (fabric texture). 
+                        Apply this fabric texture directly to the curtains, preserving the pattern repetition exactly as shown. 
                         Curtains must extend from ceiling to floor with no gap at the top.""",
 
             CurtainStyle.HALF_OPEN.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, parted in the middle with panels gathered to both sides. 
-                           CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
-                           Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
+                           CRITICAL: The curtain fabric MUST use the EXACT repeating pattern from the second image (fabric texture). 
+                           Apply this fabric texture directly to the curtains, preserving the pattern repetition exactly as shown. 
                            Curtains must extend from ceiling to floor with no gap at the top, creating a symmetrical opening in the center.""",
 
             CurtainStyle.WITH_SHEERS.value: """Transform the first image (room) by installing a double-layer curtain system mounted at the ceiling line: 
                              LAYER 1 (Inner): Install sheer white semi-transparent curtains closest to the window, visible through the opening between the main curtains. 
                              LAYER 2 (Outer): Install main curtains parted in the middle and gathered to both sides. 
-                             CRITICAL FABRIC PATTERN: The main outer curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
-                             TILE the fabric pattern SEAMLESSLY and REPEATEDLY across the ENTIRE curtain surface, maintaining the original scale and details of the pattern. 
-                             The pattern should repeat multiple times vertically to cover the full curtain height like continuous fabric or wallpaper. 
+                             CRITICAL: The main outer curtain fabric MUST use the EXACT repeating pattern from the second image (fabric texture). 
+                             Apply this fabric texture directly to the main curtains, preserving the pattern repetition exactly as shown. 
                              VISIBILITY: The white sheer curtains MUST be clearly visible in the center opening between the parted main curtains, creating a layered effect. 
                              Both layers must extend from ceiling to floor with no gap at the top. Show the sheers as a distinct white layer behind the patterned main curtains."""
         }
@@ -141,6 +140,24 @@ class LangChainOpenAIModel(BaseModel):
                 return f.read()
         return None
 
+    def _tile_fabric_pattern(self, fabric_image: Image.Image, tile_size: int = 1024) -> Image.Image:
+        """Tile fabric pattern to create seamless repeating texture"""
+        fabric_width, fabric_height = fabric_image.size
+        
+        # Calculate how many tiles needed
+        tiles_x = (tile_size // fabric_width) + 2
+        tiles_y = (tile_size // fabric_height) + 2
+        
+        # Create tiled image
+        tiled = Image.new('RGB', (fabric_width * tiles_x, fabric_height * tiles_y))
+        
+        for x in range(tiles_x):
+            for y in range(tiles_y):
+                tiled.paste(fabric_image, (x * fabric_width, y * fabric_height))
+        
+        # Crop to target size
+        return tiled.crop((0, 0, tile_size, tile_size))
+    
     async def generate_image(self, prompt: str, room_image: Image.Image, fabric_image: Image.Image, curtain_style: str = None) -> str:
         try:
             from io import BytesIO
@@ -148,13 +165,16 @@ class LangChainOpenAIModel(BaseModel):
             import time
             import hashlib
             
+            # Tile fabric pattern for seamless repetition
+            fabric_tiled = self._tile_fabric_pattern(fabric_image)
+            
             # Convert images to PNG bytes
             room_bytes = BytesIO()
             room_image.save(room_bytes, format='PNG')
             room_bytes.seek(0)
             
             fabric_bytes = BytesIO()
-            fabric_image.save(fabric_bytes, format='PNG')
+            fabric_tiled.save(fabric_bytes, format='PNG')
             fabric_bytes.seek(0)
       
             # Generate unique hash from fabric image to force fresh generation
