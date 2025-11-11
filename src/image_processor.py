@@ -121,10 +121,13 @@ class ImageProcessor:
             f"2. Install {style.value} blinds that fit EXACTLY within each window frame - width and height must match the window opening perfectly "
             f"3. Blinds must be mounted INSIDE the window recess, not outside "
             f"4. Each window gets its own separate blind fitted to its exact dimensions "
+            f"5. FABRIC PATTERN: Use the fabric pattern from the second image and TILE IT SEAMLESSLY across the entire blind surface. "
+            f"The pattern must REPEAT uniformly and consistently across all blinds with perfect alignment. "
+            f"Create a seamless, repeating pattern with no distortion or randomness. "
             f"6. Maintain the exact same room layout, furniture, walls, floor, and all other elements unchanged "
-            f"8. Show blinds in a partially lowered position (70% down) to display the fabric pattern clearly "
-            f"9. Ensure realistic shadows and depth showing blinds are inside the window frame "
-            f"10. For {style.value} blinds: show appropriate mechanism (roller tube, slats, or fabric folds) "
+            f"7. Show blinds in a partially lowered position (70% down) to display the tiled fabric pattern clearly "
+            f"8. Ensure realistic shadows and depth showing blinds are inside the window frame "
+            f"9. For {style.value} blinds: show appropriate mechanism (roller tube, slats, or fabric folds) "
             f"Professional interior design photography, photorealistic, high resolution, natural lighting."
         )
     

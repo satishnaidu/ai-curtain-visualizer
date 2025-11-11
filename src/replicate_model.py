@@ -43,9 +43,16 @@ class ReplicateModel:
             room_url = await self._upload_image(room_image)
             fabric_url = await self._upload_image(fabric_image)
             
-            # Enhance prompt with curtain style
-            style_desc = self.get_curtain_style_prompt(curtain_style) if curtain_style else "elegant floor-to-ceiling curtains mounted at the ceiling line, extending all the way down to the floor"
-            enhanced_prompt = f"{prompt} Replace window treatments with {style_desc} using the fabric pattern from the second image. CRITICAL: Curtains must be mounted at the ceiling line with no gap at the top, extending fully from ceiling to floor."
+            # Check if this is blinds or curtains based on prompt content
+            is_blinds = "blinds" in prompt.lower()
+            
+            if is_blinds:
+                # For blinds: emphasize seamless tiling
+                enhanced_prompt = f"{prompt} CRITICAL: The fabric pattern must be TILED SEAMLESSLY and REPEATED uniformly across the entire blind surface with perfect alignment and consistency."
+            else:
+                # For curtains: use existing style logic
+                style_desc = self.get_curtain_style_prompt(curtain_style) if curtain_style else "elegant floor-to-ceiling curtains mounted at the ceiling line, extending all the way down to the floor"
+                enhanced_prompt = f"{prompt} Replace window treatments with {style_desc} using the fabric pattern from the second image. CRITICAL: Curtains must be mounted at the ceiling line with no gap at the top, extending fully from ceiling to floor."
             
             output = await asyncio.to_thread(
                 self.client.run,
@@ -73,9 +80,18 @@ class ReplicateModel:
             room_url = await self._upload_image(room_image)
             fabric_url = await self._upload_image(fabric_image)
             
-            # Enhance prompt with curtain style
-            style_desc = self.get_curtain_style_prompt(curtain_style) if curtain_style else "elegant floor-to-ceiling curtains mounted at the ceiling line, extending all the way down to the floor"
-            enhanced_prompt = f"{prompt} Replace window treatments with {style_desc} using the fabric pattern provided. CRITICAL: Curtains must be mounted at the ceiling line with no gap at the top, extending fully from ceiling to floor."
+            # Check if this is blinds or curtains based on prompt content
+            is_blinds = "blinds" in prompt.lower()
+            
+            if is_blinds:
+                # For blinds: emphasize seamless tiling
+                enhanced_prompt = f"{prompt} CRITICAL: The fabric pattern must be TILED SEAMLESSLY and REPEATED uniformly across the entire blind surface with perfect alignment and consistency."
+                negative_prompt = "blurry, low quality, distorted, unrealistic, random pattern, inconsistent pattern, pattern distortion"
+            else:
+                # For curtains: use existing style logic
+                style_desc = self.get_curtain_style_prompt(curtain_style) if curtain_style else "elegant floor-to-ceiling curtains mounted at the ceiling line, extending all the way down to the floor"
+                enhanced_prompt = f"{prompt} Replace window treatments with {style_desc} using the fabric pattern provided. CRITICAL: Curtains must be mounted at the ceiling line with no gap at the top, extending fully from ceiling to floor."
+                negative_prompt = "blurry, low quality, distorted, unrealistic"
             
             output = await asyncio.to_thread(
                 self.client.run,
@@ -83,7 +99,7 @@ class ReplicateModel:
                 input={
                     "image": room_url,
                     "prompt": enhanced_prompt,
-                    "negative_prompt": "blurry, low quality, distorted, unrealistic",
+                    "negative_prompt": negative_prompt,
                     "width": 1024,
                     "height": 1024,
                     "guidance_scale": 7.5,
