@@ -69,31 +69,26 @@ class LangChainOpenAIModel(BaseModel):
         """Return appropriate prompt based on treatment style (curtains or blinds)"""
         from .config import CurtainStyle, BlindsStyle
         
-        # Curtain style prompts
+          # Curtain style prompts
         curtain_prompts = {
-            CurtainStyle.CLOSED.value: """Refine this room image to show elegant floor-to-ceiling curtains with realistic fabric draping, natural folds, and proper shadows. 
-                        The curtains should hang from ceiling to floor in graceful vertical folds. 
+            CurtainStyle.CLOSED.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, hanging straight down in graceful folds, covering all windows completely. 
                         CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
                         Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
-                        The pattern should flow across multiple slats like a tiled surface or continuous fabric. 
-                        Maintain the fabric pattern visible in the image. Add realistic lighting, shadows, and depth. Professional interior photography style.""",
+                        Curtains must extend from ceiling to floor with no gap at the top.""",
 
-            CurtainStyle.HALF_OPEN.value: """Refine this room image to show elegant floor-to-ceiling curtains parted in the middle with panels gathered to both sides. 
-                           The curtains should hang from ceiling to floor with realistic fabric draping, natural folds, and proper shadows. 
+            CurtainStyle.HALF_OPEN.value: """Transform the first image (room) by installing floor-to-ceiling curtains mounted at the ceiling line, parted in the middle with panels gathered to both sides. 
                            CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
-                           Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern.
-                           The pattern should flow across multiple slats like a tiled surface or continuous fabric.  
-                           Maintain the fabric pattern visible in the image. Create a symmetrical opening in the center. 
-                           Add realistic lighting, shadows, and depth. Professional interior photography style.""",
+                           Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
+                           Curtains must extend from ceiling to floor with no gap at the top, creating a symmetrical opening in the center.""",
 
-            CurtainStyle.WITH_SHEERS.value: """Refine this room image to show a double-layer curtain system: 
-                             Add sheer white semi-transparent curtains visible in the center opening. 
-                             The main curtains should be parted to both sides with realistic fabric draping and natural folds. 
-                             CRITICAL: The curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
-                             Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
-                             The pattern should flow across multiple slats like a tiled surface or continuous fabric. 
-                             Maintain the fabric pattern visible in the image. Show the sheers as a distinct white layer behind the main curtains. 
-                             Add realistic lighting, shadows, and depth. Professional interior photography style."""
+            CurtainStyle.WITH_SHEERS.value: """Transform the first image (room) by installing a double-layer curtain system mounted at the ceiling line: 
+                             LAYER 1 (Inner): Install sheer white semi-transparent curtains closest to the window, visible through the opening between the main curtains. 
+                             LAYER 2 (Outer): Install main curtains parted in the middle and gathered to both sides. 
+                             CRITICAL FABRIC PATTERN: The main outer curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                             TILE the fabric pattern SEAMLESSLY and REPEATEDLY across the ENTIRE curtain surface, maintaining the original scale and details of the pattern. 
+                             The pattern should repeat multiple times vertically to cover the full curtain height like continuous fabric or wallpaper. 
+                             VISIBILITY: The white sheer curtains MUST be clearly visible in the center opening between the parted main curtains, creating a layered effect. 
+                             Both layers must extend from ceiling to floor with no gap at the top. Show the sheers as a distinct white layer behind the patterned main curtains."""
         }
         
         # Blinds style prompts - ENHANCED for seamless pattern tiling
