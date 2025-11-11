@@ -81,10 +81,14 @@ class LangChainOpenAIModel(BaseModel):
                            Tile the fabric pattern seamlessly across the entire curtain surface, maintaining the original scale and details of the pattern. 
                            Curtains must extend from ceiling to floor with no gap at the top, creating a symmetrical opening in the center.""",
 
-            CurtainStyle.WITH_SHEERS.value: """Transform the first image (room) by installing a double-layer curtain system mounted at the ceiling line with sheer white curtains closest to the window and main curtains on the outer track. 
-                             CRITICAL: The main curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
-                             Tile the fabric pattern seamlessly across the curtain surface, maintaining the original scale and details. 
-                             Both layers must extend from ceiling to floor with no gap at the top."""
+            CurtainStyle.WITH_SHEERS.value: """Transform the first image (room) by installing a double-layer curtain system mounted at the ceiling line: 
+                             LAYER 1 (Inner): Install sheer white semi-transparent curtains closest to the window, visible through the opening between the main curtains. 
+                             LAYER 2 (Outer): Install main curtains parted in the middle and gathered to both sides. 
+                             CRITICAL FABRIC PATTERN: The main outer curtain fabric MUST use the EXACT pattern, texture, colors, and design from the second image (fabric photo). 
+                             TILE the fabric pattern SEAMLESSLY and REPEATEDLY across the ENTIRE curtain surface, maintaining the original scale and details of the pattern. 
+                             The pattern should repeat multiple times vertically to cover the full curtain height like continuous fabric or wallpaper. 
+                             VISIBILITY: The white sheer curtains MUST be clearly visible in the center opening between the parted main curtains, creating a layered effect. 
+                             Both layers must extend from ceiling to floor with no gap at the top. Show the sheers as a distinct white layer behind the patterned main curtains."""
         }
         
         # Blinds style prompts - ENHANCED for seamless pattern tiling
