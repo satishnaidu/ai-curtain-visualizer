@@ -182,26 +182,33 @@ class LangChainOpenAIModel(BaseModel):
             import time
             import hashlib
             
-            # Create composite with fabric pattern
-            composite = self._create_curtain_composite(room_image, fabric_image, curtain_style or '')
-            
             # Convert to PNG bytes
             room_bytes = BytesIO()
-            composite.save(room_bytes, format='PNG')
+            room_image.save(room_bytes, format='PNG')
             room_bytes.seek(0)
             
             fabric_bytes = BytesIO()
             fabric_image.save(fabric_bytes, format='PNG')
             fabric_bytes.seek(0)
             
-            # Get style-specific prompt
-            style_prompt = self.get_style_prompt(curtain_style)
-            enhanced_prompt = style_prompt
+            # Generate unique hash from fabric image to force fresh generation
+            fabric_hash = hashlib.md5(fabric_bytes.getvalue()).hexdigest()[:8]
+            timestamp = int(time.time())
             
-            # Prepare form data - only send composite image
-            files = {
-                'image': ('composite.png', room_bytes, 'image/png')
-            }
+            # Get style-specific prompt (supports both curtains and blinds) with fabric details and unique identifiers
+            style_prompt = self.get_style_prompt(curtain_style)
+            enhanced_prompt = f"{style_prompt} FABRIC_ID:{fabric_hash} TIMESTAMP:{timestamp} "
+            
+            # Reset BytesIO positions after hashing
+            room_bytes.seek(0)
+            fabric_bytes.seek(0)
+            
+            
+            # Prepare multipart form data with image[] array format
+            files = [
+                ('image[]', ('room.png', room_bytes, 'image/png')),
+                ('image[]', ('fabric.png', fabric_bytes, 'image/png'))
+            ]
             
             data = {
                 'model': 'gpt-image-1',
